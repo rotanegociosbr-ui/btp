@@ -1,0 +1,1188 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BTP — Betim Truck Parts</title>
+<style>
+  :root {
+    --steel-900: #0f1114;
+    --steel-800: #16181c;
+    --steel-700: #1e2126;
+    --steel-600: #2a2e35;
+    --steel-500: #4a5058;
+    --steel-400: #7d8590;
+    --steel-300: #b0b8c1;
+    --paper: #f5f7fa;
+    --paper-dim: #d9dee4;
+    --hazard: #ffffff;
+    --hazard-dim: #c8ccd2;
+    --go: #46c46a;
+    --go-dim: #2e8449;
+    --stop: #e05650;
+    --line: #ffffff;
+    --font-display: 'Arial Narrow', 'Helvetica Neue', sans-serif;
+    --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    font-family: var(--font-body);
+    background: var(--steel-900);
+    color: var(--paper);
+    font-size: 15px;
+    line-height: 1.4;
+    overflow-x: hidden;
+  }
+
+  /* ---------- Top bar ---------- */
+  header {
+    background: linear-gradient(180deg, var(--steel-800), var(--steel-900));
+    border-bottom: 1px solid var(--steel-600);
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+  .logo-mark {
+    height: 46px; width: auto; max-width: 200px;
+    flex-shrink: 0; object-fit: contain;
+  }
+  .brand { display: none; }
+  .brand h1 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 24px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    line-height: 1;
+  }
+  .brand p {
+    font-size: 11px;
+    color: var(--hazard);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+  .commission-badge {
+    margin-left: auto;
+    text-align: right;
+    background: var(--steel-800);
+    border: 1px solid var(--steel-600);
+    border-radius: 8px;
+    padding: 8px 14px;
+    cursor: pointer;
+  }
+  .commission-badge .label {
+    font-size: 9px; letter-spacing: 1.5px; color: var(--steel-400);
+    text-transform: uppercase;
+  }
+  .commission-badge .value {
+    font-family: var(--font-display);
+    font-size: 22px; font-weight: 700; color: var(--go);
+    letter-spacing: 1px;
+  }
+
+  /* ---------- Nav tabs ---------- */
+  nav {
+    display: flex;
+    background: var(--steel-800);
+    border-bottom: 1px solid var(--steel-700);
+    position: sticky;
+    top: 71px;
+    z-index: 40;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  nav::-webkit-scrollbar { display: none; }
+  .tab {
+    flex: 1;
+    min-width: 90px;
+    padding: 13px 8px;
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: var(--steel-400);
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color .15s, border-color .15s;
+    white-space: nowrap;
+  }
+  .tab.active { color: var(--paper); border-bottom-color: var(--hazard); }
+  .tab:hover:not(.active) { color: var(--steel-300); }
+
+  /* ---------- Layout ---------- */
+  main { padding: 18px; max-width: 1100px; margin: 0 auto; padding-bottom: 60px; }
+  .view { display: none; animation: fade .2s ease; }
+  .view.active { display: block; }
+  @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  .view-head {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 18px; flex-wrap: wrap;
+  }
+  .view-head h2 {
+    font-family: var(--font-display);
+    font-size: 26px; font-weight: 700; letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+  .view-head .count {
+    font-size: 12px; color: var(--steel-400);
+    background: var(--steel-800); padding: 3px 10px; border-radius: 20px;
+    border: 1px solid var(--steel-700);
+  }
+
+  /* ---------- Buttons ---------- */
+  .btn {
+    font-family: var(--font-body);
+    font-weight: 600; font-size: 14px;
+    border: none; border-radius: 8px;
+    padding: 11px 18px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 7px;
+    transition: transform .1s, filter .15s;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn-primary { background: var(--hazard); color: var(--steel-900); }
+  .btn-primary:hover { filter: brightness(1.08); }
+  .btn-go { background: var(--go); color: white; }
+  .btn-ghost { background: var(--steel-700); color: var(--paper); }
+  .btn-ghost:hover { background: var(--steel-600); }
+  .btn-sm { padding: 7px 12px; font-size: 12px; }
+  .btn-danger { background: none; color: var(--stop); border: 1px solid var(--steel-600); }
+  .btn-wa { background: #25D366; color: white; }
+  .push-right { margin-left: auto; }
+
+  /* ---------- Search ---------- */
+  .search {
+    width: 100%; padding: 12px 16px;
+    background: var(--steel-800); border: 1px solid var(--steel-600);
+    border-radius: 10px; color: var(--paper); font-size: 15px;
+    margin-bottom: 16px;
+  }
+  .search:focus { outline: 2px solid var(--hazard); border-color: transparent; }
+  .search::placeholder { color: var(--steel-500); }
+
+  /* ---------- Cards ---------- */
+  .card {
+    background: var(--steel-800);
+    border: 1px solid var(--steel-700);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .card-row { display: flex; align-items: flex-start; gap: 12px; }
+  .card h3 { font-size: 16px; font-weight: 700; }
+  .card .sub { font-size: 13px; color: var(--steel-400); margin-top: 2px; }
+  .card .meta { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; font-size: 12px; color: var(--steel-300); }
+  .card .meta b { color: var(--paper); font-weight: 600; }
+
+  .tag {
+    font-size: 10px; font-weight: 700; letter-spacing: 1px;
+    text-transform: uppercase; padding: 3px 8px; border-radius: 5px;
+  }
+  .tag-go { background: rgba(59,165,92,.18); color: var(--go); }
+  .tag-sold { background: rgba(217,83,79,.18); color: var(--stop); }
+  .tag-hold { background: rgba(245,166,35,.18); color: var(--hazard); }
+
+  .part-photo {
+    width: 54px; height: 54px; border-radius: 8px; flex-shrink: 0;
+    background: var(--steel-700); display: flex; align-items: center; justify-content: center;
+    font-size: 22px; overflow: hidden;
+  }
+  .part-photo img { width: 100%; height: 100%; object-fit: cover; }
+
+  /* ---------- Empty state ---------- */
+  .empty {
+    text-align: center; padding: 60px 20px; color: var(--steel-500);
+  }
+  .empty .icon { font-size: 44px; margin-bottom: 12px; opacity: .5; }
+  .empty h3 { color: var(--steel-300); font-size: 17px; margin-bottom: 6px; }
+  .empty p { font-size: 14px; max-width: 320px; margin: 0 auto 18px; }
+
+  /* ---------- Stats ---------- */
+  .stat-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px;
+  }
+  @media (min-width: 640px) { .stat-grid { grid-template-columns: repeat(4, 1fr); } }
+  .stat {
+    background: var(--steel-800); border: 1px solid var(--steel-700);
+    border-radius: 12px; padding: 16px;
+  }
+  .stat .label { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--steel-400); }
+  .stat .num { font-family: var(--font-display); font-size: 28px; font-weight: 700; margin-top: 6px; letter-spacing: 1px; }
+  .stat.accent .num { color: var(--hazard); }
+  .stat.go .num { color: var(--go); }
+
+  /* ---------- Modal ---------- */
+  .modal-bg {
+    position: fixed; inset: 0; background: rgba(0,0,0,.7);
+    display: none; align-items: flex-end; justify-content: center; z-index: 100;
+    backdrop-filter: blur(2px);
+  }
+  .modal-bg.open { display: flex; }
+  @media (min-width: 640px) { .modal-bg { align-items: center; } }
+  .modal {
+    background: var(--steel-800);
+    border: 1px solid var(--steel-600);
+    border-radius: 16px 16px 0 0;
+    width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto;
+    padding: 22px;
+    animation: slideUp .25s ease;
+  }
+  @media (min-width: 640px) { .modal { border-radius: 16px; } }
+  @keyframes slideUp { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .modal h3 {
+    font-family: var(--font-display); font-size: 22px; font-weight: 700;
+    letter-spacing: 1px; text-transform: uppercase; margin-bottom: 18px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .field { margin-bottom: 14px; }
+  .field label {
+    display: block; font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
+    color: var(--steel-400); margin-bottom: 6px; font-weight: 600;
+  }
+  .field input, .field select, .field textarea {
+    width: 100%; padding: 11px 13px;
+    background: var(--steel-900); border: 1px solid var(--steel-600);
+    border-radius: 8px; color: var(--paper); font-size: 15px;
+    font-family: var(--font-body);
+  }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    outline: 2px solid var(--hazard); border-color: transparent;
+  }
+  .field-row { display: flex; gap: 10px; }
+  .field-row .field { flex: 1; }
+  .modal-actions { display: flex; gap: 10px; margin-top: 22px; }
+  .modal-actions .btn { flex: 1; justify-content: center; }
+
+  /* ---------- Sale line items ---------- */
+  .line-item {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--steel-900); border: 1px solid var(--steel-700);
+    border-radius: 8px; padding: 10px; margin-bottom: 8px;
+  }
+  .line-item .li-info { flex: 1; min-width: 0; }
+  .line-item .li-info b { font-size: 14px; }
+  .line-item .li-info span { font-size: 12px; color: var(--steel-400); display: block; }
+  .line-item .li-price { font-weight: 700; color: var(--hazard); }
+
+  .total-box {
+    background: var(--steel-900); border: 1px dashed var(--steel-500);
+    border-radius: 10px; padding: 14px; margin-top: 14px;
+  }
+  .total-line { display: flex; justify-content: space-between; padding: 4px 0; font-size: 14px; }
+  .total-line.grand { font-size: 19px; font-weight: 700; border-top: 1px solid var(--steel-600); margin-top: 6px; padding-top: 10px; }
+  .total-line.commission { color: var(--go); font-weight: 700; }
+
+  .hint {
+    font-size: 12px; color: var(--steel-400); background: var(--steel-900);
+    border-left: 3px solid var(--hazard); padding: 10px 12px; border-radius: 0 8px 8px 0;
+    margin-bottom: 16px;
+  }
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: var(--go); color: white; padding: 13px 22px; border-radius: 10px;
+    font-weight: 600; z-index: 200; opacity: 0; transition: all .3s; box-shadow: 0 8px 24px rgba(0,0,0,.4);
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+  .toast.err { background: var(--stop); }
+  /* ---------- Message cards ---------- */
+  .msg-card {
+    background: var(--steel-800); border: 1px solid var(--steel-700);
+    border-radius: 12px; padding: 15px; margin-bottom: 12px;
+  }
+  .msg-card .msg-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .msg-card .msg-icon { font-size: 22px; }
+  .msg-card .msg-title { font-weight: 700; font-size: 15px; }
+  .msg-card .msg-desc { font-size: 12px; color: var(--steel-400); }
+  .msg-card .msg-preview {
+    font-size: 13px; color: var(--steel-300); background: var(--steel-900);
+    border-radius: 8px; padding: 11px 13px; margin-bottom: 11px; white-space: pre-wrap;
+    line-height: 1.5; max-height: 130px; overflow-y: auto;
+  }
+  .msg-card .msg-actions { display: flex; gap: 8px; }
+  .msg-card .msg-actions .btn { flex: 1; justify-content: center; }
+
+  /* ---------- Quote card (elegant preview) ---------- */
+  .quote-card-wrap { background: var(--steel-900); padding: 0; }
+  #quoteCanvasHolder { display: flex; justify-content: center; margin-bottom: 16px; }
+  #quoteCanvasHolder canvas, #quoteCanvasHolder img {
+    max-width: 100%; border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,.5);
+  }
+
+</style>
+</head>
+<body>
+<header>
+  <img class="logo-mark" src="data:image/png;base64,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" alt="BTP — Betim Truck Parts">
+  <div class="brand">
+    <h1>BTP</h1>
+    <p>Betim Truck Parts</p>
+  </div>
+  <div class="commission-badge" onclick="showView('vendas')">
+    <div class="label">Comissão acum.</div>
+    <div class="value" id="commissionTotal">R$ 0</div>
+  </div>
+</header>
+
+<nav>
+  <button class="tab active" data-view="painel" onclick="showView('painel')">Painel</button>
+  <button class="tab" data-view="pecas" onclick="showView('pecas')">Peças</button>
+  <button class="tab" data-view="vendas" onclick="showView('vendas')">Vendas</button>
+  <button class="tab" data-view="clientes" onclick="showView('clientes')">Clientes</button>
+  <button class="tab" data-view="orcamento" onclick="showView('orcamento')">Orçamento</button>
+  <button class="tab" data-view="mensagens" onclick="showView('mensagens')">Mensagens</button>
+  <button class="tab" data-view="empresa" onclick="showView('empresa')">Empresa</button>
+</nav>
+
+<main>
+  <!-- PAINEL -->
+  <section class="view active" id="view-painel">
+    <div class="view-head"><h2>Painel</h2></div>
+    <div class="stat-grid">
+      <div class="stat"><div class="label">Peças no pátio</div><div class="num" id="statParts">0</div></div>
+      <div class="stat accent"><div class="label">Valor em estoque</div><div class="num" id="statStock">R$ 0</div></div>
+      <div class="stat go"><div class="label">Vendas no mês</div><div class="num" id="statSales">R$ 0</div></div>
+      <div class="stat go"><div class="label">Comissão no mês</div><div class="num" id="statCommission">R$ 0</div></div>
+    </div>
+    <div class="view-head"><h2 style="font-size:18px">Últimas vendas</h2></div>
+    <div id="recentSales"></div>
+  </section>
+
+  <!-- PEÇAS -->
+  <section class="view" id="view-pecas">
+    <div class="view-head">
+      <h2>Peças</h2>
+      <span class="count" id="partsCount">0</span>
+      <button class="btn btn-primary push-right" onclick="openPartModal()">+ Nova peça</button>
+    </div>
+    <input class="search" id="partSearch" placeholder="Buscar por nome, código, veículo ou chassi..." oninput="renderParts()">
+    <div id="partsList"></div>
+  </section>
+
+  <!-- VENDAS -->
+  <section class="view" id="view-vendas">
+    <div class="view-head">
+      <h2>Vendas</h2>
+      <span class="count" id="salesCount">0</span>
+      <button class="btn btn-go push-right" onclick="openSaleModal()">+ Nova venda</button>
+    </div>
+    <div class="stat-grid">
+      <div class="stat"><div class="label">Total vendido</div><div class="num" id="statTotalSold">R$ 0</div></div>
+      <div class="stat go"><div class="label">Comissão total (2%)</div><div class="num" id="statTotalComm">R$ 0</div></div>
+    </div>
+    <div id="salesList"></div>
+  </section>
+
+  <!-- CLIENTES -->
+  <section class="view" id="view-clientes">
+    <div class="view-head">
+      <h2>Clientes</h2>
+      <span class="count" id="clientsCount">0</span>
+      <button class="btn btn-primary push-right" onclick="openClientModal()">+ Novo cliente</button>
+    </div>
+    <input class="search" id="clientSearch" placeholder="Buscar por nome, documento ou telefone..." oninput="renderClients()">
+    <div id="clientsList"></div>
+  </section>
+
+  <!-- ORÇAMENTO -->
+  <section class="view" id="view-orcamento">
+    <div class="view-head"><h2>Orçamento</h2></div>
+    <div class="hint">Monte o orçamento escolhendo peças do pátio. Você pode enviar como <b>card elegante</b> (imagem), <b>PDF</b> ou <b>texto</b> direto no WhatsApp.</div>
+    <div class="field">
+      <label>Cliente</label>
+      <select id="quoteClient"></select>
+    </div>
+    <div class="field">
+      <label>Adicionar peça ao orçamento</label>
+      <select id="quotePartPicker" onchange="addQuotePart(this.value)"></select>
+    </div>
+    <div id="quoteItems"></div>
+    <div class="total-box" id="quoteTotalBox" style="display:none">
+      <div class="total-line grand"><span>Total</span><span id="quoteTotal">R$ 0</span></div>
+    </div>
+    <div id="quoteActions" style="display:none">
+      <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap">
+        <button class="btn btn-primary" style="flex:1;min-width:130px;justify-content:center" onclick="previewQuoteCard()">👁 Ver card</button>
+        <button class="btn btn-ghost" style="flex:1;min-width:130px;justify-content:center" onclick="clearQuote()">Limpar</button>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn btn-wa" style="flex:1;min-width:130px;justify-content:center" onclick="sendQuoteWhatsApp()">Enviar texto no WhatsApp</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- MENSAGENS -->
+  <section class="view" id="view-mensagens">
+    <div class="view-head"><h2>Mensagens</h2></div>
+    <div class="hint">Modelos prontos no tom da BTP. Escolha um cliente pra personalizar com o nome, ou copie o texto puro. Toque em <b>Enviar</b> pra abrir direto no WhatsApp dele.</div>
+    <div class="field">
+      <label>Cliente (personaliza a mensagem)</label>
+      <select id="msgClient"></select>
+    </div>
+    <div id="msgList"></div>
+  </section>
+
+  <!-- EMPRESA -->
+  <section class="view" id="view-empresa">
+    <div class="view-head"><h2>Empresa</h2></div>
+    <div class="hint">Dados da BTP usados nos orçamentos e mensagens. Toque em qualquer item pra copiar.</div>
+    <div class="card" onclick="copyText('${''}')" id="empresaCard"></div>
+  </section>
+</main>
+
+<!-- MODALS -->
+<div class="modal-bg" id="modalBg"><div class="modal" id="modalContent"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ============ Persistência ============
+// Salva no próprio navegador do aparelho (celular ou PC).
+// Funciona offline; cada aparelho guarda seus próprios dados.
+const DB = {
+  _mem: {},
+  _ok: (() => {
+    try {
+      const k = '__btp_test__';
+      window.localStorage.setItem(k, '1');
+      window.localStorage.removeItem(k);
+      return true;
+    } catch (e) { return false; }
+  })(),
+  async get(key, def) {
+    try {
+      if (this._ok) {
+        const v = window.localStorage.getItem('btp_' + key);
+        return v ? JSON.parse(v) : def;
+      }
+      return (key in this._mem) ? this._mem[key] : def;
+    } catch { return def; }
+  },
+  async set(key, val) {
+    try {
+      if (this._ok) {
+        window.localStorage.setItem('btp_' + key, JSON.stringify(val));
+      } else {
+        this._mem[key] = val;
+      }
+    } catch (e) {
+      this._mem[key] = val;
+      console.error('Falha ao salvar', e);
+    }
+  }
+};
+
+let clients = [], parts = [], sales = [], quote = [];
+const BTP = {
+  nome: 'BTP · Betim Truck Parts',
+  razao: 'RMCZ Soluções em Peças Ltda',
+  cnpj: '49.091.074/0001-70',
+  endereco: 'Alameda dos Tinhorões, 324 · Bandeirinhas · Betim/MG',
+  whats: '31994883431',
+  whatsFmt: '(31) 99488-3431',
+  pixChave: '49.091.074/0001-70',
+  pixTipo: 'CNPJ',
+  horario: 'Seg a Qui 8h–18h · Sex 8h–17h'
+};
+const COMMISSION_RATE = 0.02;
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const brl = n => 'R$ ' + (n||0).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const brlShort = n => {
+  if (n >= 1000) return 'R$ ' + (n/1000).toLocaleString('pt-BR',{maximumFractionDigits:1}) + 'k';
+  return 'R$ ' + (n||0).toLocaleString('pt-BR',{maximumFractionDigits:0});
+};
+
+async function loadAll() {
+  clients = await DB.get('clients', []);
+  parts = await DB.get('parts', []);
+  sales = await DB.get('sales', []);
+  renderAll();
+}
+function renderAll() {
+  renderPanel(); renderParts(); renderSales(); renderClients();
+  refreshQuotePickers(); updateCommissionBadge(); renderMessages();
+}
+
+// ============ Navegação ============
+function showView(v) {
+  document.querySelectorAll('.view').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+  document.getElementById('view-' + v).classList.add('active');
+  document.querySelector('.tab[data-view="'+v+'"]').classList.add('active');
+  window.scrollTo(0,0);
+  if (v === 'orcamento') refreshQuotePickers();
+  if (v === 'mensagens') renderMessages();
+  if (v === 'empresa') renderEmpresa();
+}
+
+// ============ Toast ============
+function toast(msg, err) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show' + (err ? ' err' : '');
+  setTimeout(() => t.className = 'toast', 2200);
+}
+
+// ============ Modal helpers ============
+function openModal(html) {
+  document.getElementById('modalContent').innerHTML = html;
+  document.getElementById('modalBg').classList.add('open');
+}
+function closeModal() { document.getElementById('modalBg').classList.remove('open'); }
+document.getElementById('modalBg').addEventListener('click', e => {
+  if (e.target.id === 'modalBg') closeModal();
+});
+
+// ============ CLIENTES ============
+function openClientModal(id) {
+  const c = id ? clients.find(x => x.id === id) : {};
+  openModal(`
+    <h3>${id ? 'Editar' : 'Novo'} cliente</h3>
+    <div class="field"><label>Nome / Razão social</label><input id="c_name" value="${c.name||''}"></div>
+    <div class="field"><label>CPF / CNPJ</label><input id="c_doc" value="${c.doc||''}"></div>
+    <div class="field"><label>WhatsApp / Telefone</label><input id="c_phone" value="${c.phone||''}" placeholder="(31) 90000-0000"></div>
+    <div class="field"><label>E-mail (para envio de nota fiscal)</label><input id="c_email" type="email" value="${c.email||''}" placeholder="cliente@email.com"></div>
+    <div class="field"><label>Tipo</label>
+      <select id="c_type">
+        ${['Mecânico/Oficina','Revenda','Consumidor final','Frota/Transportadora'].map(t=>`<option ${c.type===t?'selected':''}>${t}</option>`).join('')}
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveClient('${id||''}')">Salvar</button>
+    </div>`);
+}
+async function saveClient(id) {
+  const name = document.getElementById('c_name').value.trim();
+  if (!name) { toast('Informe o nome do cliente', true); return; }
+  const data = {
+    name,
+    doc: document.getElementById('c_doc').value.trim(),
+    phone: document.getElementById('c_phone').value.trim(),
+    email: document.getElementById('c_email').value.trim(),
+    type: document.getElementById('c_type').value,
+  };
+  if (id) { Object.assign(clients.find(c=>c.id===id), data); }
+  else { clients.push({ id: uid(), ...data, createdAt: Date.now() }); }
+  await DB.set('clients', clients);
+  closeModal(); renderClients(); refreshQuotePickers(); toast('Cliente salvo');
+}
+async function deleteClient(id) {
+  if (!confirm('Excluir este cliente?')) return;
+  clients = clients.filter(c => c.id !== id);
+  await DB.set('clients', clients);
+  renderClients(); refreshQuotePickers(); toast('Cliente excluído');
+}
+function clientSales(id) { return sales.filter(s => s.clientId === id); }
+function renderClients() {
+  const q = (document.getElementById('clientSearch').value||'').toLowerCase();
+  const list = clients.filter(c =>
+    c.name.toLowerCase().includes(q) || (c.doc||'').toLowerCase().includes(q) || (c.phone||'').includes(q) || (c.email||'').toLowerCase().includes(q)
+  ).sort((a,b)=>a.name.localeCompare(b.name));
+  document.getElementById('clientsCount').textContent = clients.length;
+  const el = document.getElementById('clientsList');
+  if (!list.length) {
+    el.innerHTML = clients.length
+      ? `<div class="empty"><div class="icon">🔍</div><h3>Nada encontrado</h3></div>`
+      : `<div class="empty"><div class="icon">👤</div><h3>Nenhum cliente ainda</h3><p>Cadastre seu primeiro cliente pra começar a registrar vendas e histórico.</p><button class="btn btn-primary" onclick="openClientModal()">+ Novo cliente</button></div>`;
+    return;
+  }
+  el.innerHTML = list.map(c => {
+    const cs = clientSales(c.id);
+    const spent = cs.reduce((s,x)=>s+x.total,0);
+    return `<div class="card">
+      <div class="card-row">
+        <div style="flex:1">
+          <h3>${c.name}</h3>
+          <div class="sub">${c.type}${c.doc?' · '+c.doc:''}</div>
+          <div class="meta">
+            ${c.phone?`<span>📱 <b>${c.phone}</b></span>`:''}
+            ${c.email?`<span>✉️ <b>${c.email}</b></span>`:''}
+            <span>🧾 <b>${cs.length}</b> compras</span>
+            <span>💰 <b>${brl(spent)}</b></span>
+          </div>
+        </div>
+      </div>
+      <div class="meta" style="margin-top:12px">
+        ${c.phone?`<button class="btn btn-wa btn-sm" onclick="waClient('${c.id}')">WhatsApp</button>`:''}
+        <button class="btn btn-ghost btn-sm" onclick="openClientModal('${c.id}')">Editar</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteClient('${c.id}')">Excluir</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function waClient(id) {
+  const c = clients.find(x=>x.id===id);
+  const phone = (c.phone||'').replace(/\D/g,'');
+  if (!phone) { toast('Cliente sem telefone', true); return; }
+  window.open(`https://wa.me/55${phone}`, '_blank');
+}
+
+// ============ PEÇAS ============
+function openPartModal(id) {
+  const p = id ? parts.find(x => x.id === id) : {};
+  openModal(`
+    <h3>${id ? 'Editar' : 'Nova'} peça</h3>
+    <div class="field"><label>Descrição da peça</label><input id="p_name" value="${p.name||''}" placeholder="Ex: Cabeçote motor MWM"></div>
+    <div class="field-row">
+      <div class="field"><label>Código interno</label><input id="p_code" value="${p.code||''}" placeholder="Ex: CB-018"></div>
+      <div class="field"><label>Preço (R$)</label><input id="p_price" type="number" step="0.01" value="${p.price||''}" placeholder="0,00"></div>
+    </div>
+    <div class="field"><label>Veículo de origem</label><input id="p_vehicle" value="${p.vehicle||''}" placeholder="Ex: Mercedes-Benz 1620 · 2008"></div>
+    <div class="field"><label>Chassi de origem (rastreabilidade Detran)</label><input id="p_chassis" value="${p.chassis||''}" placeholder="17 dígitos"></div>
+    <div class="field-row">
+      <div class="field"><label>Estado</label>
+        <select id="p_cond">${['Bom','Regular','Recondicionado','Sucata útil'].map(t=>`<option ${p.cond===t?'selected':''}>${t}</option>`).join('')}</select>
+      </div>
+      <div class="field"><label>Status</label>
+        <select id="p_status">${['Disponível','Reservada','Vendida'].map(t=>`<option ${p.status===t?'selected':''}>${t}</option>`).join('')}</select>
+      </div>
+    </div>
+    <div class="field"><label>Foto (opcional)</label><input id="p_photo" type="file" accept="image/*" onchange="previewPhoto(this)"></div>
+    <div id="photoPreview">${p.photo?`<img src="${p.photo}" style="width:70px;height:70px;object-fit:cover;border-radius:8px">`:''}</div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="savePart('${id||''}')">Salvar</button>
+    </div>`);
+  window._photoData = p.photo || '';
+}
+function previewPhoto(input) {
+  const f = input.files[0]; if (!f) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    // compress
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const max = 400; let {width, height} = img;
+      if (width > height && width > max) { height = height*max/width; width = max; }
+      else if (height > max) { width = width*max/height; height = max; }
+      canvas.width = width; canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      window._photoData = canvas.toDataURL('image/jpeg', 0.7);
+      document.getElementById('photoPreview').innerHTML = `<img src="${window._photoData}" style="width:70px;height:70px;object-fit:cover;border-radius:8px">`;
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(f);
+}
+async function savePart(id) {
+  const name = document.getElementById('p_name').value.trim();
+  if (!name) { toast('Informe a descrição da peça', true); return; }
+  const data = {
+    name,
+    code: document.getElementById('p_code').value.trim(),
+    price: parseFloat(document.getElementById('p_price').value) || 0,
+    vehicle: document.getElementById('p_vehicle').value.trim(),
+    chassis: document.getElementById('p_chassis').value.trim(),
+    cond: document.getElementById('p_cond').value,
+    status: document.getElementById('p_status').value,
+    photo: window._photoData || '',
+  };
+  if (id) { Object.assign(parts.find(p=>p.id===id), data); }
+  else { parts.push({ id: uid(), ...data, createdAt: Date.now() }); }
+  await DB.set('parts', parts);
+  closeModal(); renderParts(); renderPanel(); refreshQuotePickers(); toast('Peça salva');
+}
+async function deletePart(id) {
+  if (!confirm('Excluir esta peça?')) return;
+  parts = parts.filter(p => p.id !== id);
+  await DB.set('parts', parts);
+  renderParts(); renderPanel(); refreshQuotePickers(); toast('Peça excluída');
+}
+function statusTag(s) {
+  if (s === 'Disponível') return '<span class="tag tag-go">Disponível</span>';
+  if (s === 'Vendida') return '<span class="tag tag-sold">Vendida</span>';
+  return '<span class="tag tag-hold">Reservada</span>';
+}
+function renderParts() {
+  const q = (document.getElementById('partSearch').value||'').toLowerCase();
+  const list = parts.filter(p =>
+    p.name.toLowerCase().includes(q) || (p.code||'').toLowerCase().includes(q) ||
+    (p.vehicle||'').toLowerCase().includes(q) || (p.chassis||'').toLowerCase().includes(q)
+  ).sort((a,b)=>b.createdAt-a.createdAt);
+  document.getElementById('partsCount').textContent = parts.length;
+  const el = document.getElementById('partsList');
+  if (!list.length) {
+    el.innerHTML = parts.length
+      ? `<div class="empty"><div class="icon">🔍</div><h3>Nada encontrado</h3></div>`
+      : `<div class="empty"><div class="icon">⚙️</div><h3>Pátio vazio</h3><p>Cadastre as peças do desmanche com veículo e chassi de origem pra manter a rastreabilidade.</p><button class="btn btn-primary" onclick="openPartModal()">+ Nova peça</button></div>`;
+    return;
+  }
+  el.innerHTML = list.map(p => `<div class="card">
+    <div class="card-row">
+      <div class="part-photo">${p.photo?`<img src="${p.photo}">`:'⚙️'}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <h3>${p.name}</h3>${statusTag(p.status)}
+        </div>
+        <div class="sub">${p.code?p.code+' · ':''}${p.cond}</div>
+        <div class="meta">
+          ${p.vehicle?`<span>🚛 <b>${p.vehicle}</b></span>`:''}
+          ${p.chassis?`<span>🔖 <b>${p.chassis}</b></span>`:''}
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-family:var(--font-display);font-size:22px;font-weight:700;color:var(--hazard)">${brl(p.price)}</div>
+      </div>
+    </div>
+    <div class="meta" style="margin-top:12px">
+      <button class="btn btn-ghost btn-sm" onclick="openPartModal('${p.id}')">Editar</button>
+      <button class="btn btn-danger btn-sm" onclick="deletePart('${p.id}')">Excluir</button>
+    </div>
+  </div>`).join('');
+}
+
+// ============ VENDAS ============
+let saleItems = [];
+function openSaleModal() {
+  saleItems = [];
+  const available = parts.filter(p => p.status !== 'Vendida');
+  openModal(`
+    <h3>Nova venda</h3>
+    <div class="field"><label>Cliente</label>
+      <select id="s_client">
+        <option value="">— Sem cliente —</option>
+        ${clients.map(c=>`<option value="${c.id}">${c.name}</option>`).join('')}
+      </select>
+    </div>
+    <div class="field"><label>Adicionar peça</label>
+      <select id="s_partpicker" onchange="addSaleItem(this.value)">
+        <option value="">— Escolher peça —</option>
+        ${available.map(p=>`<option value="${p.id}">${p.name} · ${brl(p.price)}</option>`).join('')}
+      </select>
+    </div>
+    <div id="saleItemsList"></div>
+    <div class="total-box" id="saleTotalBox">
+      <div class="total-line grand"><span>Total bruto</span><span id="s_total">R$ 0,00</span></div>
+      <div class="total-line commission"><span>Sua comissão (2%)</span><span id="s_comm">R$ 0,00</span></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-go" onclick="saveSale()">Registrar venda</button>
+    </div>`);
+  renderSaleItems();
+}
+function addSaleItem(pid) {
+  if (!pid) return;
+  const p = parts.find(x=>x.id===pid);
+  if (saleItems.find(i=>i.id===pid)) { toast('Peça já adicionada', true); return; }
+  saleItems.push({ id: p.id, name: p.name, price: p.price });
+  renderSaleItems();
+  document.getElementById('s_partpicker').value = '';
+}
+function removeSaleItem(pid) { saleItems = saleItems.filter(i=>i.id!==pid); renderSaleItems(); }
+function renderSaleItems() {
+  const el = document.getElementById('saleItemsList');
+  el.innerHTML = saleItems.map(i=>`<div class="line-item">
+    <div class="li-info"><b>${i.name}</b></div>
+    <div class="li-price">${brl(i.price)}</div>
+    <button class="btn btn-danger btn-sm" onclick="removeSaleItem('${i.id}')">✕</button>
+  </div>`).join('');
+  const total = saleItems.reduce((s,i)=>s+i.price,0);
+  document.getElementById('s_total').textContent = brl(total);
+  document.getElementById('s_comm').textContent = brl(total*COMMISSION_RATE);
+}
+async function saveSale() {
+  if (!saleItems.length) { toast('Adicione ao menos uma peça', true); return; }
+  const clientId = document.getElementById('s_client').value;
+  const total = saleItems.reduce((s,i)=>s+i.price,0);
+  const sale = {
+    id: uid(),
+    clientId,
+    clientName: clientId ? clients.find(c=>c.id===clientId).name : 'Sem cliente',
+    items: saleItems.map(i=>({...i})),
+    total,
+    commission: total * COMMISSION_RATE,
+    date: Date.now()
+  };
+  sales.push(sale);
+  // mark parts sold
+  saleItems.forEach(i => { const p = parts.find(x=>x.id===i.id); if (p) p.status = 'Vendida'; });
+  await DB.set('sales', sales);
+  await DB.set('parts', parts);
+  closeModal(); renderAll(); toast('Venda registrada · comissão ' + brl(sale.commission));
+}
+async function deleteSale(id) {
+  if (!confirm('Excluir esta venda? As peças voltam pro estoque.')) return;
+  const sale = sales.find(s=>s.id===id);
+  if (sale) sale.items.forEach(i => { const p = parts.find(x=>x.id===i.id); if (p) p.status = 'Disponível'; });
+  sales = sales.filter(s => s.id !== id);
+  await DB.set('sales', sales); await DB.set('parts', parts);
+  renderAll(); toast('Venda excluída');
+}
+function fmtDate(ts) {
+  return new Date(ts).toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit',year:'2-digit'});
+}
+function renderSales() {
+  const list = [...sales].sort((a,b)=>b.date-a.date);
+  document.getElementById('salesCount').textContent = sales.length;
+  const totalSold = sales.reduce((s,x)=>s+x.total,0);
+  const totalComm = sales.reduce((s,x)=>s+x.commission,0);
+  document.getElementById('statTotalSold').textContent = brlShort(totalSold);
+  document.getElementById('statTotalComm').textContent = brlShort(totalComm);
+  const el = document.getElementById('salesList');
+  if (!list.length) {
+    el.innerHTML = `<div class="empty"><div class="icon">🧾</div><h3>Nenhuma venda ainda</h3><p>Registre sua primeira venda. A comissão de 2% é calculada automaticamente.</p><button class="btn btn-go" onclick="openSaleModal()">+ Nova venda</button></div>`;
+    return;
+  }
+  el.innerHTML = list.map(s=>`<div class="card">
+    <div class="card-row">
+      <div style="flex:1">
+        <h3>${s.clientName}</h3>
+        <div class="sub">${fmtDate(s.date)} · ${s.items.length} peça(s)</div>
+        <div class="meta">${s.items.map(i=>`<span>${i.name}</span>`).join('')}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-family:var(--font-display);font-size:20px;font-weight:700">${brl(s.total)}</div>
+        <div style="font-size:12px;color:var(--go);font-weight:700">+${brl(s.commission)}</div>
+      </div>
+    </div>
+    <div class="meta" style="margin-top:10px">
+      <button class="btn btn-danger btn-sm" onclick="deleteSale('${s.id}')">Excluir</button>
+    </div>
+  </div>`).join('');
+}
+
+// ============ PAINEL ============
+function isThisMonth(ts) {
+  const d = new Date(ts), n = new Date();
+  return d.getMonth()===n.getMonth() && d.getFullYear()===n.getFullYear();
+}
+function renderPanel() {
+  const avail = parts.filter(p=>p.status!=='Vendida');
+  document.getElementById('statParts').textContent = avail.length;
+  document.getElementById('statStock').textContent = brlShort(avail.reduce((s,p)=>s+p.price,0));
+  const monthSales = sales.filter(s=>isThisMonth(s.date));
+  document.getElementById('statSales').textContent = brlShort(monthSales.reduce((s,x)=>s+x.total,0));
+  document.getElementById('statCommission').textContent = brlShort(monthSales.reduce((s,x)=>s+x.commission,0));
+  const recent = [...sales].sort((a,b)=>b.date-a.date).slice(0,3);
+  const el = document.getElementById('recentSales');
+  el.innerHTML = recent.length ? recent.map(s=>`<div class="card"><div class="card-row">
+    <div style="flex:1"><h3>${s.clientName}</h3><div class="sub">${fmtDate(s.date)}</div></div>
+    <div style="text-align:right"><div style="font-weight:700;font-size:18px">${brl(s.total)}</div>
+    <div style="font-size:12px;color:var(--go)">+${brl(s.commission)}</div></div>
+  </div></div>`).join('') : `<div class="empty" style="padding:30px"><p>Sem vendas ainda. Elas aparecem aqui.</p></div>`;
+}
+function updateCommissionBadge() {
+  const total = sales.reduce((s,x)=>s+x.commission,0);
+  document.getElementById('commissionTotal').textContent = brlShort(total);
+}
+
+// ============ ORÇAMENTO ============
+function refreshQuotePickers() {
+  const cs = document.getElementById('quoteClient');
+  if (cs) cs.innerHTML = `<option value="">— Sem cliente —</option>` + clients.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  const pp = document.getElementById('quotePartPicker');
+  if (pp) {
+    const avail = parts.filter(p=>p.status!=='Vendida' && !quote.find(q=>q.id===p.id));
+    pp.innerHTML = `<option value="">— Escolher peça —</option>` + avail.map(p=>`<option value="${p.id}">${p.name} · ${brl(p.price)}</option>`).join('');
+  }
+}
+function addQuotePart(pid) {
+  if (!pid) return;
+  const p = parts.find(x=>x.id===pid);
+  quote.push({ id:p.id, name:p.name, price:p.price, vehicle:p.vehicle });
+  renderQuote();
+}
+function removeQuotePart(pid) { quote = quote.filter(q=>q.id!==pid); renderQuote(); }
+function clearQuote() { quote = []; renderQuote(); }
+function renderQuote() {
+  const el = document.getElementById('quoteItems');
+  el.innerHTML = quote.map(q=>`<div class="line-item">
+    <div class="li-info"><b>${q.name}</b><span>${q.vehicle||''}</span></div>
+    <div class="li-price">${brl(q.price)}</div>
+    <button class="btn btn-danger btn-sm" onclick="removeQuotePart('${q.id}')">✕</button>
+  </div>`).join('');
+  const total = quote.reduce((s,q)=>s+q.price,0);
+  document.getElementById('quoteTotal').textContent = brl(total);
+  document.getElementById('quoteTotalBox').style.display = quote.length?'block':'none';
+  document.getElementById('quoteActions').style.display = quote.length?'flex':'none';
+  refreshQuotePickers();
+}
+function sendQuoteWhatsApp() {
+  const total = quote.reduce((s,q)=>s+q.price,0);
+  const clientId = document.getElementById('quoteClient').value;
+  const client = clientId ? clients.find(c=>c.id===clientId) : null;
+  let msg = `*BTP · BETIM TRUCK PARTS*\n_Orçamento de peças_\n\n`;
+  if (client) msg += `Cliente: ${client.name}\n\n`;
+  quote.forEach(q => { msg += `• ${q.name}${q.vehicle?` (${q.vehicle})`:''}\n  ${brl(q.price)}\n`; });
+  msg += `\n*Total: ${brl(total)}*\n\n✅ Peças com procedência e rastreabilidade Detran\n\n💳 *PIX (${BTP.pixTipo}):* ${BTP.pixChave}\n📍 ${BTP.endereco}\n📱 ${BTP.whatsFmt}\n🕗 ${BTP.horario}\n\n_Orçamento válido por 3 dias._`;
+  const phone = client && client.phone ? '55'+client.phone.replace(/\D/g,'') : '';
+  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+// ============ MENSAGENS AUTOMÁTICAS ============
+const MESSAGES = [
+  {
+    icon: '👋', title: 'Boas-vindas',
+    desc: 'Primeiro contato com o cliente',
+    build: (nome) => `Opa${nome?', '+nome:''}! Aqui é da *BTP · Betim Truck Parts* 🔧\n\nTrabalhamos com peças de caminhão com procedência e rastreabilidade Detran. Me conta qual peça você tá procurando que eu verifico no nosso pátio e já te passo o preço. 👍`
+  },
+  {
+    icon: '✅', title: 'Peça separada / disponível',
+    desc: 'Avisar que tem a peça em estoque',
+    build: (nome) => `Boa notícia${nome?', '+nome:''}! ✅\n\nA peça que você procurava tá aqui no nosso pátio, com procedência. Já deixei separada pra você. Quer que eu te mande o valor e as fotos?`
+  },
+  {
+    icon: '📦', title: 'Pronta pra retirada',
+    desc: 'Peça separada esperando o cliente',
+    build: (nome) => `${nome?nome+', a':'A'} sua peça já tá separada e pronta pra retirada aqui na *BTP*. 📦\n\n📍 ${BTP.endereco}\n🕗 ${BTP.horario}\n\nQual o melhor dia pra você buscar? Se precisar, a gente combina a entrega também.`
+  },
+  {
+    icon: '💰', title: 'Cobrança — gentil',
+    desc: 'Lembrete leve pra bom cliente',
+    build: (nome) => `Oi${nome?', '+nome:''}! Tudo certo? 😊\n\nPassando só pra lembrar do pagamento da peça que ficou pendente. Quando puder acertar, é só fazer o PIX:\n\n💳 *PIX (${BTP.pixTipo}):* ${BTP.pixChave}\n\nQualquer coisa tô à disposição!`
+  },
+  {
+    icon: '⚠️', title: 'Cobrança — firme',
+    desc: 'Pra pendência mais atrasada',
+    build: (nome) => `${nome?nome+', ':''}preciso resolver a pendência do pagamento da sua peça, que já está em atraso.\n\nSegue o PIX pra quitação:\n💳 *PIX (${BTP.pixTipo}):* ${BTP.pixChave}\n\nMe retorna hoje pra combinarmos, por favor. Assim mantemos tudo em dia e você continua com as portas abertas aqui na BTP. Obrigado.`
+  },
+  {
+    icon: '🔧', title: 'Pós-venda',
+    desc: 'Retorno depois da compra',
+    build: (nome) => `E aí${nome?', '+nome:''}! Aqui é da *BTP* 🔧\n\nSó passando pra saber se deu tudo certo com a peça e se encaixou direitinho. Qualquer coisa, tô aqui. Precisando de outras peças, é só chamar — nosso pátio tá sempre girando!`
+  },
+  {
+    icon: '🔄', title: 'Reativar cliente sumido',
+    desc: 'Cliente que não compra há um tempo',
+    build: (nome) => `Fala${nome?', '+nome:''}! Quanto tempo! 👋\n\nAqui é da *BTP · Betim Truck Parts*. Chegou bastante peça nova no pátio esses dias. Se tiver precisando de algo pro caminhão, me manda o que procura que eu dou uma olhada pra você. Abraço!`
+  },
+  {
+    icon: '🚚', title: 'Peça a caminho',
+    desc: 'Confirmar envio/entrega',
+    build: (nome) => `${nome?nome+', s':'S'}ua peça já está a caminho! 🚚\n\nQualquer novidade sobre a entrega eu te aviso por aqui. Obrigado pela confiança na *BTP*!`
+  }
+];
+
+function renderMessages() {
+  const sel = document.getElementById('msgClient');
+  if (sel) {
+    const cur = sel.value;
+    sel.innerHTML = `<option value="">— Sem cliente (texto genérico) —</option>` +
+      clients.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+    sel.value = cur;
+    sel.onchange = renderMessages;
+  }
+  const clientId = sel ? sel.value : '';
+  const client = clientId ? clients.find(c=>c.id===clientId) : null;
+  const firstName = client ? client.name.split(' ')[0] : '';
+  const el = document.getElementById('msgList');
+  el.innerHTML = MESSAGES.map((m, i) => {
+    const text = m.build(firstName);
+    return `<div class="msg-card">
+      <div class="msg-head">
+        <span class="msg-icon">${m.icon}</span>
+        <div><div class="msg-title">${m.title}</div><div class="msg-desc">${m.desc}</div></div>
+      </div>
+      <div class="msg-preview" id="msgprev${i}">${text}</div>
+      <div class="msg-actions">
+        <button class="btn btn-ghost btn-sm" onclick="copyMsg(${i})">Copiar</button>
+        <button class="btn btn-wa btn-sm" onclick="sendMsg(${i})">Enviar no WhatsApp</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function currentMsgText(i) {
+  const sel = document.getElementById('msgClient');
+  const client = sel && sel.value ? clients.find(c=>c.id===sel.value) : null;
+  const firstName = client ? client.name.split(' ')[0] : '';
+  return MESSAGES[i].build(firstName);
+}
+function copyMsg(i) {
+  const text = currentMsgText(i);
+  navigator.clipboard.writeText(text).then(()=>toast('Mensagem copiada')).catch(()=>{
+    // fallback
+    const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy'); ta.remove(); toast('Mensagem copiada');
+  });
+}
+function sendMsg(i) {
+  const text = currentMsgText(i);
+  const sel = document.getElementById('msgClient');
+  const client = sel && sel.value ? clients.find(c=>c.id===sel.value) : null;
+  const phone = client && client.phone ? '55'+client.phone.replace(/\D/g,'') : '';
+  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, '_blank');
+}
+
+// ============ CARD VISUAL DO ORÇAMENTO ============
+let _quoteLogoImg = null;
+function loadQuoteLogo(cb) {
+  if (_quoteLogoImg) { cb(_quoteLogoImg); return; }
+  const logoEl = document.querySelector('.logo-mark');
+  const img = new Image();
+  img.onload = () => { _quoteLogoImg = img; cb(img); };
+  img.onerror = () => cb(null);
+  img.src = logoEl ? logoEl.src : '';
+}
+function buildQuoteCanvas(cb) {
+  const clientId = document.getElementById('quoteClient').value;
+  const client = clientId ? clients.find(c=>c.id===clientId) : null;
+  const total = quote.reduce((s,q)=>s+q.price,0);
+  const scale = 2;
+  const W = 620;
+  const headerH = 130, footerH = 110, itemH = 66, padTop = 20;
+  const H = headerH + padTop + quote.length*itemH + 80 + footerH;
+  const canvas = document.createElement('canvas');
+  canvas.width = W*scale; canvas.height = H*scale;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(scale, scale);
+
+  // background
+  ctx.fillStyle = '#23272d'; ctx.fillRect(0,0,W,H);
+  // header band
+  ctx.fillStyle = '#1a1d21'; ctx.fillRect(0,0,W,headerH);
+  ctx.fillStyle = '#e8ebee'; ctx.fillRect(0,headerH-4,W,4);
+
+  const drawBody = (logo) => {
+    // logo
+    if (logo) {
+      const lw = 175, lh = lw * (logo.height/logo.width);
+      ctx.drawImage(logo, 34, headerH/2 - lh/2, lw, lh);
+    } else {
+      ctx.fillStyle = '#e8ebee'; ctx.font = 'bold 40px Arial'; ctx.fillText('BTP', 34, 78);
+    }
+    // header right
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#8a94a2'; ctx.font = '13px Arial';
+    ctx.fillText('ORÇAMENTO', W-34, 52);
+    ctx.fillStyle = '#e8ebee'; ctx.font = 'bold 15px Arial';
+    const d = new Date();
+    ctx.fillText(d.toLocaleDateString('pt-BR'), W-34, 76);
+    ctx.textAlign = 'left';
+
+    let y = headerH + padTop + 24;
+    // client
+    if (client) {
+      ctx.fillStyle = '#8a94a2'; ctx.font = '12px Arial'; ctx.fillText('CLIENTE', 34, y);
+      ctx.fillStyle = '#eef1f4'; ctx.font = 'bold 19px Arial'; ctx.fillText(client.name, 34, y+24);
+      y += 54;
+    }
+    // items header
+    ctx.fillStyle = '#8a94a2'; ctx.font = '12px Arial';
+    ctx.fillText('PEÇAS', 34, y); y += 16;
+    ctx.strokeStyle = '#3c424c'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(34,y); ctx.lineTo(W-34,y); ctx.stroke();
+    y += 8;
+    // items
+    quote.forEach(q => {
+      y += 26;
+      ctx.fillStyle = '#eef1f4'; ctx.font = 'bold 16px Arial';
+      let name = q.name; 
+      while (ctx.measureText(name).width > 380 && name.length > 4) name = name.slice(0,-2);
+      if (name !== q.name) name += '…';
+      ctx.fillText(name, 34, y);
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#e8ebee'; ctx.font = 'bold 16px Arial';
+      ctx.fillText(brl(q.price), W-34, y);
+      ctx.textAlign = 'left';
+      if (q.vehicle) {
+        y += 20;
+        ctx.fillStyle = '#8a94a2'; ctx.font = '13px Arial';
+        ctx.fillText('🚛 ' + q.vehicle, 34, y);
+      }
+      y += 16;
+      ctx.strokeStyle = '#2e333b';
+      ctx.beginPath(); ctx.moveTo(34,y); ctx.lineTo(W-34,y); ctx.stroke();
+    });
+    // total box
+    y += 30;
+    ctx.fillStyle = '#1a1d21';
+    roundRect(ctx, 34, y-28, W-68, 56, 12); ctx.fill();
+    ctx.fillStyle = '#8a94a2'; ctx.font = 'bold 14px Arial'; ctx.fillText('TOTAL', 52, y+6);
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#ffffff'; ctx.font = 'bold 28px Arial'; ctx.fillText(brl(total), W-52, y+9);
+    ctx.textAlign = 'left';
+    // footer
+    const fy = H - footerH + 26;
+    ctx.fillStyle = '#3ba55c'; ctx.font = '13px Arial';
+    ctx.fillText('✔ Peças com procedência e rastreabilidade Detran', 34, fy);
+    ctx.fillStyle = '#e8ebee'; ctx.font = 'bold 13px Arial';
+    ctx.fillText('PIX (' + BTP.pixTipo + '): ' + BTP.pixChave, 34, fy+22);
+    ctx.fillStyle = '#8a94a2'; ctx.font = '12px Arial';
+    ctx.fillText('📍 ' + BTP.endereco, 34, fy+42);
+    ctx.fillText('📱 ' + BTP.whatsFmt + '   ·   Válido por 3 dias', 34, fy+60);
+
+    cb(canvas);
+  };
+  loadQuoteLogo(drawBody);
+}
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.arcTo(x+w, y, x+w, y+h, r);
+  ctx.arcTo(x+w, y+h, x, y+h, r);
+  ctx.arcTo(x, y+h, x, y, r);
+  ctx.arcTo(x, y, x+w, y, r);
+  ctx.closePath();
+}
+function previewQuoteCard() {
+  if (!quote.length) { toast('Adicione peças primeiro', true); return; }
+  buildQuoteCanvas((canvas) => {
+    const dataUrl = canvas.toDataURL('image/png');
+    openModal(`
+      <h3>Card do orçamento</h3>
+      <div id="quoteCanvasHolder"><img src="${dataUrl}"></div>
+      <div class="hint">Baixe a imagem e envie no WhatsApp, ou use o texto. A imagem passa uma apresentação mais profissional. 💪</div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal()">Fechar</button>
+        <button class="btn btn-primary" onclick="downloadQuoteCard()">📥 Baixar imagem</button>
+      </div>
+      <div class="modal-actions" style="margin-top:10px">
+        <button class="btn btn-wa" onclick="sendQuoteWhatsApp()">Enviar texto no WhatsApp</button>
+      </div>
+    `);
+    window._quoteCardData = dataUrl;
+  });
+}
+function downloadQuoteCard() {
+  if (!window._quoteCardData) return;
+  const a = document.createElement('a');
+  const clientId = document.getElementById('quoteClient').value;
+  const client = clientId ? clients.find(c=>c.id===clientId) : null;
+  const name = client ? client.name.replace(/[^\w]/g,'_') : 'cliente';
+  a.href = window._quoteCardData;
+  a.download = `orcamento_BTP_${name}.png`;
+  a.click();
+  toast('Imagem baixada — anexe no WhatsApp');
+}
+
+// ============ Init ============
+function copyText(txt) {
+  navigator.clipboard.writeText(txt).then(()=>toast('Copiado')).catch(()=>{
+    const ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();toast('Copiado');
+  });
+}
+function renderEmpresa() {
+  const rows = [
+    ['🏢','Nome fantasia', BTP.nome, BTP.nome],
+    ['📋','Razão social', BTP.razao, BTP.razao],
+    ['🔢','CNPJ', BTP.cnpj, BTP.cnpj],
+    ['💳','PIX ('+BTP.pixTipo+')', BTP.pixChave, BTP.pixChave],
+    ['📍','Endereço', BTP.endereco, BTP.endereco],
+    ['📱','WhatsApp', BTP.whatsFmt, BTP.whats],
+    ['🕗','Funcionamento', BTP.horario, BTP.horario],
+  ];
+  document.getElementById('empresaCard').outerHTML =
+    `<div id="empresaCard">` + rows.map(r=>`
+    <div style="display:flex;align-items:center;gap:12px;padding:13px 4px;border-bottom:1px solid var(--steel-700);cursor:pointer" onclick="copyText('${r[3].replace(/'/g,"\\'")}')">
+      <span style="font-size:20px">${r[0]}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--steel-400)">${r[1]}</div>
+        <div style="font-weight:600;font-size:15px;word-break:break-word">${r[2]}</div>
+      </div>
+      <span style="font-size:12px;color:var(--steel-500)">copiar</span>
+    </div>`).join('') + `</div>`;
+}
+
+loadAll();
+</script>
+</body>
+</html>
