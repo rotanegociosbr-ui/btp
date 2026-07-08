@@ -329,6 +329,7 @@
   <div class="commission-badge" onclick="showView('vendas')">
     <div class="label">Comissão acum.</div>
     <div class="value" id="commissionTotal">R$ 0</div>
+    <div id="cloudStatus" style="font-size:9px;letter-spacing:.5px;margin-top:2px;color:var(--steel-400)">⏳</div>
   </div>
 </header>
 
@@ -492,6 +493,42 @@ const DB = {
 };
 
 let clients = [], parts = [], sales = [], quote = [];
+
+// ====== SINCRONIZAÇÃO NA NUVEM (Supabase) ======
+const CLOUD = {
+  url: 'https://nrmslkplpsevuqsygvpd.supabase.co',
+  key: 'sb_publishable_lNboVhFv_MLZ7b9WRtLgbA_MlI_W_tY',
+  online: false,
+  async _req(method, path, body) {
+    const res = await fetch(this.url + '/rest/v1/' + path, {
+      method,
+      headers: {
+        'apikey': this.key,
+        'Authorization': 'Bearer ' + this.key,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates'
+      },
+      body: body ? JSON.stringify(body) : undefined
+    });
+    if (!res.ok) throw new Error('cloud ' + res.status);
+    return res.status === 204 ? null : res.json();
+  },
+  // baixa todos os registros de uma tabela
+  async pull(table) {
+    const rows = await this._req('GET', table + '?select=id,data');
+    return rows.map(r => ({ id: r.id, ...r.data }));
+  },
+  // salva (insere ou atualiza) um registro
+  async push(table, item) {
+    await this._req('POST', table, [{ id: item.id, data: item, updated_at: new Date().toISOString() }]);
+  },
+  // apaga um registro
+  async remove(table, id) {
+    await this._req('DELETE', table + '?id=eq.' + encodeURIComponent(id));
+  }
+};
+const TABLE = { clients: 'clients', parts: 'parts', sales: 'sales' };
+
 const BTP = {
   nome: 'BTP · Betim Truck Parts',
   razao: 'RMCZ Soluções em Peças Ltda',
@@ -512,10 +549,58 @@ const brlShort = n => {
 };
 
 async function loadAll() {
+  // primeiro carrega o que tem local (rápido, funciona offline)
   clients = await DB.get('clients', []);
   parts = await DB.get('parts', []);
   sales = await DB.get('sales', []);
   renderAll();
+  updateCloudStatus('sync');
+  // depois tenta buscar da nuvem
+  try {
+    const [c, p, s] = await Promise.all([
+      CLOUD.pull(TABLE.clients),
+      CLOUD.pull(TABLE.parts),
+      CLOUD.pull(TABLE.sales)
+    ]);
+    clients = c; parts = p; sales = s;
+    CLOUD.online = true;
+    // atualiza o cache local com o que veio da nuvem
+    await DB.set('clients', clients);
+    await DB.set('parts', parts);
+    await DB.set('sales', sales);
+    renderAll();
+    updateCloudStatus('online');
+  } catch (e) {
+    CLOUD.online = false;
+    updateCloudStatus('offline');
+    console.warn('Nuvem indisponível, usando dados locais', e);
+  }
+}
+// sincroniza um item (salva local + nuvem)
+async function syncSave(table, item) {
+  await DB.set(table, {clients, parts, sales}[table]);
+  if (CLOUD.online) {
+    try { await CLOUD.push(TABLE[table], item); }
+    catch(e){ updateCloudStatus('offline'); CLOUD.online=false; }
+  }
+}
+async function syncDelete(table, id) {
+  await DB.set(table, {clients, parts, sales}[table]);
+  if (CLOUD.online) {
+    try { await CLOUD.remove(TABLE[table], id); }
+    catch(e){ updateCloudStatus('offline'); CLOUD.online=false; }
+  }
+}
+function updateCloudStatus(state) {
+  const el = document.getElementById('cloudStatus');
+  if (!el) return;
+  const map = {
+    online: {t:'☁️ Sincronizado', c:'var(--go)'},
+    sync: {t:'⏳ Carregando...', c:'var(--steel-400)'},
+    offline: {t:'📴 Offline (local)', c:'var(--hazard-dim)'}
+  };
+  const s = map[state] || map.offline;
+  el.textContent = s.t; el.style.color = s.c;
 }
 function renderAll() {
   renderPanel(); renderParts(); renderSales(); renderClients();
@@ -581,15 +666,16 @@ async function saveClient(id) {
     email: document.getElementById('c_email').value.trim(),
     type: document.getElementById('c_type').value,
   };
-  if (id) { Object.assign(clients.find(c=>c.id===id), data); }
-  else { clients.push({ id: uid(), ...data, createdAt: Date.now() }); }
-  await DB.set('clients', clients);
+  let saved;
+  if (id) { saved = clients.find(c=>c.id===id); Object.assign(saved, data); }
+  else { saved = { id: uid(), ...data, createdAt: Date.now() }; clients.push(saved); }
+  await syncSave('clients', saved);
   closeModal(); renderClients(); refreshQuotePickers(); toast('Cliente salvo');
 }
 async function deleteClient(id) {
   if (!confirm('Excluir este cliente?')) return;
   clients = clients.filter(c => c.id !== id);
-  await DB.set('clients', clients);
+  await syncDelete('clients', id);
   renderClients(); refreshQuotePickers(); toast('Cliente excluído');
 }
 function clientSales(id) { return sales.filter(s => s.clientId === id); }
@@ -713,15 +799,16 @@ async function savePart(id) {
     photos: window._photos || [],
     photo: (window._photos && window._photos[0]) || '',
   };
-  if (id) { Object.assign(parts.find(p=>p.id===id), data); }
-  else { parts.push({ id: uid(), ...data, createdAt: Date.now() }); }
-  await DB.set('parts', parts);
+  let saved;
+  if (id) { saved = parts.find(p=>p.id===id); Object.assign(saved, data); }
+  else { saved = { id: uid(), ...data, createdAt: Date.now() }; parts.push(saved); }
+  await syncSave('parts', saved);
   closeModal(); renderParts(); renderPanel(); refreshQuotePickers(); toast('Peça salva');
 }
 async function deletePart(id) {
   if (!confirm('Excluir esta peça?')) return;
   parts = parts.filter(p => p.id !== id);
-  await DB.set('parts', parts);
+  await syncDelete('parts', id);
   renderParts(); renderPanel(); refreshQuotePickers(); toast('Peça excluída');
 }
 function openGallery(id) {
@@ -864,24 +951,27 @@ async function saveSale() {
   };
   sales.push(sale);
   // mark parts sold
-  saleItems.forEach(i => { const p = parts.find(x=>x.id===i.id); if (p) p.status = 'Vendida'; });
-  await DB.set('sales', sales);
-  await DB.set('parts', parts);
+  const afetadas = [];
+  saleItems.forEach(i => { const p = parts.find(x=>x.id===i.id); if (p) { p.status = 'Vendida'; afetadas.push(p); } });
+  await syncSave('sales', sale);
+  for (const p of afetadas) await syncSave('parts', p);
   closeModal(); renderAll(); toast('Venda registrada · comissão ' + brl(sale.commission));
 }
 async function deleteSale(id) {
   if (!confirm('Excluir esta venda? As peças voltam pro estoque.')) return;
   const sale = sales.find(s=>s.id===id);
-  if (sale) sale.items.forEach(i => { const p = parts.find(x=>x.id===i.id); if (p) p.status = 'Disponível'; });
+  const afetadas = [];
+  if (sale) sale.items.forEach(i => { const p = parts.find(x=>x.id===i.id); if (p) { p.status = 'Disponível'; afetadas.push(p); } });
   sales = sales.filter(s => s.id !== id);
-  await DB.set('sales', sales); await DB.set('parts', parts);
+  await syncDelete('sales', id);
+  for (const p of afetadas) await syncSave('parts', p);
   renderAll(); toast('Venda excluída');
 }
 async function togglePaid(id) {
   const sale = sales.find(s=>s.id===id);
   if (!sale) return;
   sale.paid = !sale.paid;
-  await DB.set('sales', sales);
+  await syncSave('sales', sale);
   renderAll(); toast(sale.paid ? 'Marcada como paga ✅' : 'Marcada como pendente ⏳');
 }
 function fmtDate(ts) {
