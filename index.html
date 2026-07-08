@@ -340,6 +340,7 @@
   <button class="tab" data-view="orcamento" onclick="showView('orcamento')">Orçamento</button>
   <button class="tab" data-view="mensagens" onclick="showView('mensagens')">Mensagens</button>
   <button class="tab" data-view="empresa" onclick="showView('empresa')">Empresa</button>
+  <button class="tab" data-view="relatorio" onclick="showView('relatorio')">Relatório</button>
 </nav>
 
 <main>
@@ -377,6 +378,7 @@
     <div class="stat-grid">
       <div class="stat"><div class="label">Total vendido</div><div class="num" id="statTotalSold">R$ 0</div></div>
       <div class="stat go"><div class="label">Comissão total (2%)</div><div class="num" id="statTotalComm">R$ 0</div></div>
+      <div class="stat"><div class="label">A receber (pendente)</div><div class="num" id="statAReceber" style="color:var(--stop)">R$ 0</div></div>
     </div>
     <div id="salesList"></div>
   </section>
@@ -435,6 +437,16 @@
     <div class="view-head"><h2>Empresa</h2></div>
     <div class="hint">Dados da BTP usados nos orçamentos e mensagens. Toque em qualquer item pra copiar.</div>
     <div class="card" onclick="copyText('${''}')" id="empresaCard"></div>
+  </section>
+
+  <!-- RELATÓRIO -->
+  <section class="view" id="view-relatorio">
+    <div class="view-head"><h2>Relatório</h2></div>
+    <div class="field">
+      <label>Mês</label>
+      <select id="reportMonth" onchange="renderReport()"></select>
+    </div>
+    <div id="reportContent"></div>
   </section>
 </main>
 
@@ -520,6 +532,7 @@ function showView(v) {
   if (v === 'orcamento') refreshQuotePickers();
   if (v === 'mensagens') renderMessages();
   if (v === 'empresa') renderEmpresa();
+  if (v === 'relatorio') renderReport();
 }
 
 // ============ Toast ============
@@ -644,33 +657,47 @@ function openPartModal(id) {
         <select id="p_status">${['Disponível','Reservada','Vendida'].map(t=>`<option ${p.status===t?'selected':''}>${t}</option>`).join('')}</select>
       </div>
     </div>
-    <div class="field"><label>Foto (opcional)</label><input id="p_photo" type="file" accept="image/*" onchange="previewPhoto(this)"></div>
-    <div id="photoPreview">${p.photo?`<img src="${p.photo}" style="width:70px;height:70px;object-fit:cover;border-radius:8px">`:''}</div>
+    <div class="field"><label>Fotos (pode adicionar várias)</label><input id="p_photo" type="file" accept="image/*" multiple onchange="previewPhoto(this)"></div>
+    <div id="photoPreview" style="display:flex;gap:8px;flex-wrap:wrap"></div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="savePart('${id||''}')">Salvar</button>
     </div>`);
-  window._photoData = p.photo || '';
+  window._photos = Array.isArray(p.photos) ? [...p.photos] : (p.photo ? [p.photo] : []);
+  renderPhotoPreview();
 }
+function renderPhotoPreview() {
+  const el = document.getElementById('photoPreview');
+  if (!el) return;
+  el.innerHTML = window._photos.map((ph,i)=>`
+    <div style="position:relative">
+      <img src="${ph}" style="width:64px;height:64px;object-fit:cover;border-radius:8px">
+      <button onclick="removePhoto(${i})" style="position:absolute;top:-6px;right:-6px;background:var(--stop);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:12px;cursor:pointer">✕</button>
+    </div>`).join('');
+}
+function removePhoto(i) { window._photos.splice(i,1); renderPhotoPreview(); }
 function previewPhoto(input) {
-  const f = input.files[0]; if (!f) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    // compress
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const max = 400; let {width, height} = img;
-      if (width > height && width > max) { height = height*max/width; width = max; }
-      else if (height > max) { width = width*max/height; height = max; }
-      canvas.width = width; canvas.height = height;
-      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-      window._photoData = canvas.toDataURL('image/jpeg', 0.7);
-      document.getElementById('photoPreview').innerHTML = `<img src="${window._photoData}" style="width:70px;height:70px;object-fit:cover;border-radius:8px">`;
+  const files = Array.from(input.files||[]);
+  if (!files.length) return;
+  files.forEach(f => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const max = 500; let {width, height} = img;
+        if (width > height && width > max) { height = height*max/width; width = max; }
+        else if (height > max) { width = width*max/height; height = max; }
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        window._photos.push(canvas.toDataURL('image/jpeg', 0.7));
+        renderPhotoPreview();
+      };
+      img.src = e.target.result;
     };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(f);
+    reader.readAsDataURL(f);
+  });
+  input.value = '';
 }
 async function savePart(id) {
   const name = document.getElementById('p_name').value.trim();
@@ -683,7 +710,8 @@ async function savePart(id) {
     chassis: document.getElementById('p_chassis').value.trim(),
     cond: document.getElementById('p_cond').value,
     status: document.getElementById('p_status').value,
-    photo: window._photoData || '',
+    photos: window._photos || [],
+    photo: (window._photos && window._photos[0]) || '',
   };
   if (id) { Object.assign(parts.find(p=>p.id===id), data); }
   else { parts.push({ id: uid(), ...data, createdAt: Date.now() }); }
@@ -695,6 +723,27 @@ async function deletePart(id) {
   parts = parts.filter(p => p.id !== id);
   await DB.set('parts', parts);
   renderParts(); renderPanel(); refreshQuotePickers(); toast('Peça excluída');
+}
+function openGallery(id) {
+  const p = parts.find(x=>x.id===id);
+  const fotos = (p.photos && p.photos.length) ? p.photos : (p.photo?[p.photo]:[]);
+  if (!fotos.length) { toast('Sem fotos', true); return; }
+  openModal(`
+    <h3>${p.name}</h3>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      ${fotos.map(f=>`<img src="${f}" style="width:100%;border-radius:10px">`).join('')}
+    </div>
+    <div class="modal-actions" style="margin-top:16px">
+      <button class="btn btn-ghost" onclick="closeModal()">Fechar</button>
+      ${p.status!=='Vendida'?`<button class="btn btn-wa" onclick="sharePartWhatsApp('${p.id}')">Enviar no WhatsApp</button>`:''}
+    </div>`);
+}
+function sharePartWhatsApp(id) {
+  const p = parts.find(x=>x.id===id);
+  let msg = `*BTP · BETIM TRUCK PARTS*\n\n🔧 *${p.name}*\n`;
+  if (p.vehicle) msg += `🚛 ${p.vehicle}\n`;
+  msg += `Estado: ${p.cond}\n*${brl(p.price)}*\n\n✅ Procedência e rastreabilidade Detran\n📱 ${BTP.whatsFmt}`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
 }
 function statusTag(s) {
   if (s === 'Disponível') return '<span class="tag tag-go">Disponível</span>';
@@ -715,9 +764,11 @@ function renderParts() {
       : `<div class="empty"><div class="icon">⚙️</div><h3>Pátio vazio</h3><p>Cadastre as peças do desmanche com veículo e chassi de origem pra manter a rastreabilidade.</p><button class="btn btn-primary" onclick="openPartModal()">+ Nova peça</button></div>`;
     return;
   }
-  el.innerHTML = list.map(p => `<div class="card">
+  el.innerHTML = list.map(p => {
+    const nFotos = (p.photos && p.photos.length) || (p.photo?1:0);
+    return `<div class="card">
     <div class="card-row">
-      <div class="part-photo">${p.photo?`<img src="${p.photo}">`:'⚙️'}</div>
+      <div class="part-photo" ${nFotos?`onclick="openGallery('${p.id}')" style="cursor:pointer"`:''}>${p.photo?`<img src="${p.photo}">`:'⚙️'}${nFotos>1?`<span style="position:absolute;bottom:2px;right:2px;background:rgba(0,0,0,.7);color:#fff;font-size:9px;padding:1px 5px;border-radius:8px">${nFotos}📷</span>`:''}</div>
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <h3>${p.name}</h3>${statusTag(p.status)}
@@ -733,10 +784,12 @@ function renderParts() {
       </div>
     </div>
     <div class="meta" style="margin-top:12px">
+      ${nFotos?`<button class="btn btn-ghost btn-sm" onclick="openGallery('${p.id}')">📷 Ver fotos</button>`:''}
       <button class="btn btn-ghost btn-sm" onclick="openPartModal('${p.id}')">Editar</button>
       <button class="btn btn-danger btn-sm" onclick="deletePart('${p.id}')">Excluir</button>
     </div>
-  </div>`).join('');
+  </div>`;
+  }).join('');
 }
 
 // ============ VENDAS ============
@@ -762,6 +815,12 @@ function openSaleModal() {
     <div class="total-box" id="saleTotalBox">
       <div class="total-line grand"><span>Total bruto</span><span id="s_total">R$ 0,00</span></div>
       <div class="total-line commission"><span>Sua comissão (2%)</span><span id="s_comm">R$ 0,00</span></div>
+    </div>
+    <div class="field" style="margin-top:14px"><label>Pagamento</label>
+      <select id="s_paid">
+        <option value="pago">✅ Pago</option>
+        <option value="pendente">⏳ Pendente (fiado)</option>
+      </select>
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
@@ -800,6 +859,7 @@ async function saveSale() {
     items: saleItems.map(i=>({...i})),
     total,
     commission: total * COMMISSION_RATE,
+    paid: document.getElementById('s_paid').value === 'pago',
     date: Date.now()
   };
   sales.push(sale);
@@ -817,6 +877,13 @@ async function deleteSale(id) {
   await DB.set('sales', sales); await DB.set('parts', parts);
   renderAll(); toast('Venda excluída');
 }
+async function togglePaid(id) {
+  const sale = sales.find(s=>s.id===id);
+  if (!sale) return;
+  sale.paid = !sale.paid;
+  await DB.set('sales', sales);
+  renderAll(); toast(sale.paid ? 'Marcada como paga ✅' : 'Marcada como pendente ⏳');
+}
 function fmtDate(ts) {
   return new Date(ts).toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit',year:'2-digit'});
 }
@@ -827,6 +894,9 @@ function renderSales() {
   const totalComm = sales.reduce((s,x)=>s+x.commission,0);
   document.getElementById('statTotalSold').textContent = brlShort(totalSold);
   document.getElementById('statTotalComm').textContent = brlShort(totalComm);
+  const aReceber = sales.filter(s=>!s.paid).reduce((s,x)=>s+x.total,0);
+  const arEl = document.getElementById('statAReceber');
+  if (arEl) arEl.textContent = brlShort(aReceber);
   const el = document.getElementById('salesList');
   if (!list.length) {
     el.innerHTML = `<div class="empty"><div class="icon">🧾</div><h3>Nenhuma venda ainda</h3><p>Registre sua primeira venda. A comissão de 2% é calculada automaticamente.</p><button class="btn btn-go" onclick="openSaleModal()">+ Nova venda</button></div>`;
@@ -835,7 +905,10 @@ function renderSales() {
   el.innerHTML = list.map(s=>`<div class="card">
     <div class="card-row">
       <div style="flex:1">
-        <h3>${s.clientName}</h3>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <h3>${s.clientName}</h3>
+          ${s.paid ? '<span class="tag tag-go">Pago</span>' : '<span class="tag tag-hold">Pendente</span>'}
+        </div>
         <div class="sub">${fmtDate(s.date)} · ${s.items.length} peça(s)</div>
         <div class="meta">${s.items.map(i=>`<span>${i.name}</span>`).join('')}</div>
       </div>
@@ -845,6 +918,7 @@ function renderSales() {
       </div>
     </div>
     <div class="meta" style="margin-top:10px">
+      <button class="btn ${s.paid?'btn-ghost':'btn-go'} btn-sm" onclick="togglePaid('${s.id}')">${s.paid ? 'Marcar pendente' : '✅ Marcar pago'}</button>
       <button class="btn btn-danger btn-sm" onclick="deleteSale('${s.id}')">Excluir</button>
     </div>
   </div>`).join('');
@@ -1180,6 +1254,80 @@ function renderEmpresa() {
       </div>
       <span style="font-size:12px;color:var(--steel-500)">copiar</span>
     </div>`).join('') + `</div>`;
+}
+
+function renderReport() {
+  const sel = document.getElementById('reportMonth');
+  if (!sel) return;
+  // montar lista de meses que têm vendas + mês atual
+  const meses = {};
+  const now = new Date();
+  const curKey = now.getFullYear()+'-'+String(now.getMonth()).padStart(2,'0');
+  meses[curKey] = true;
+  sales.forEach(s => { const d = new Date(s.date); meses[d.getFullYear()+'-'+String(d.getMonth()).padStart(2,'0')] = true; });
+  const nomesMes = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const keys = Object.keys(meses).sort().reverse();
+  const cur = sel.value || curKey;
+  sel.innerHTML = keys.map(k=>{
+    const [y,m] = k.split('-');
+    return `<option value="${k}" ${k===cur?'selected':''}>${nomesMes[parseInt(m)]} / ${y}</option>`;
+  }).join('');
+
+  const [selY, selM] = (sel.value||curKey).split('-').map(Number);
+  const doMes = sales.filter(s => { const d=new Date(s.date); return d.getFullYear()===selY && d.getMonth()===selM; });
+
+  const totalVendido = doMes.reduce((a,s)=>a+s.total,0);
+  const totalComissao = doMes.reduce((a,s)=>a+s.commission,0);
+  const recebido = doMes.filter(s=>s.paid).reduce((a,s)=>a+s.total,0);
+  const aReceber = doMes.filter(s=>!s.paid).reduce((a,s)=>a+s.total,0);
+  const nVendas = doMes.length;
+  const nPecas = doMes.reduce((a,s)=>a+s.items.length,0);
+
+  // peça mais vendida (por nome)
+  const contagem = {};
+  doMes.forEach(s=>s.items.forEach(i=>{ contagem[i.name]=(contagem[i.name]||0)+1; }));
+  const topPeca = Object.entries(contagem).sort((a,b)=>b[1]-a[1])[0];
+  // melhor cliente (por valor)
+  const porCliente = {};
+  doMes.forEach(s=>{ porCliente[s.clientName]=(porCliente[s.clientName]||0)+s.total; });
+  const topCliente = Object.entries(porCliente).sort((a,b)=>b[1]-a[1])[0];
+
+  const el = document.getElementById('reportContent');
+  if (!nVendas) {
+    el.innerHTML = `<div class="empty"><div class="icon">📊</div><h3>Sem vendas neste mês</h3><p>Quando você registrar vendas neste mês, o resumo aparece aqui.</p></div>`;
+    return;
+  }
+  el.innerHTML = `
+    <div class="stat-grid">
+      <div class="stat"><div class="label">Vendido no mês</div><div class="num">${brlShort(totalVendido)}</div></div>
+      <div class="stat go"><div class="label">Sua comissão (2%)</div><div class="num">${brlShort(totalComissao)}</div></div>
+      <div class="stat"><div class="label">Já recebido</div><div class="num" style="color:var(--go)">${brlShort(recebido)}</div></div>
+      <div class="stat"><div class="label">A receber</div><div class="num" style="color:var(--stop)">${brlShort(aReceber)}</div></div>
+    </div>
+    <div class="card">
+      <div class="meta" style="justify-content:space-between">
+        <span>🧾 Vendas: <b>${nVendas}</b></span>
+        <span>⚙️ Peças vendidas: <b>${nPecas}</b></span>
+      </div>
+    </div>
+    ${topPeca?`<div class="card"><div class="sub">Peça mais vendida</div><h3>${topPeca[0]}</h3><div class="meta"><span><b>${topPeca[1]}</b> unidade(s)</span></div></div>`:''}
+    ${topCliente?`<div class="card"><div class="sub">Melhor cliente do mês</div><h3>${topCliente[0]}</h3><div class="meta"><span>Comprou <b>${brl(topCliente[1])}</b></span></div></div>`:''}
+    <button class="btn btn-wa" style="width:100%;justify-content:center;margin-top:8px" onclick="shareReportWhatsApp('${sel.value}')">Enviar resumo no WhatsApp</button>
+  `;
+}
+function shareReportWhatsApp(key) {
+  const [selY, selM] = key.split('-').map(Number);
+  const nomesMes = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const doMes = sales.filter(s => { const d=new Date(s.date); return d.getFullYear()===selY && d.getMonth()===selM; });
+  const totalVendido = doMes.reduce((a,s)=>a+s.total,0);
+  const totalComissao = doMes.reduce((a,s)=>a+s.commission,0);
+  const aReceber = doMes.filter(s=>!s.paid).reduce((a,s)=>a+s.total,0);
+  let msg = `*BTP · Resumo ${nomesMes[selM]}/${selY}*\n\n`;
+  msg += `🧾 Vendas: ${doMes.length}\n`;
+  msg += `💰 Total vendido: ${brl(totalVendido)}\n`;
+  msg += `📈 Comissão (2%): ${brl(totalComissao)}\n`;
+  msg += `⏳ A receber: ${brl(aReceber)}`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
 loadAll();
