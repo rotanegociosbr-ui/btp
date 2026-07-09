@@ -557,6 +557,11 @@ function openClientModal(id) {
   const c = id ? clients.find(x => x.id === id) : {};
   openModal(`
     <h3>${id ? 'Editar' : 'Novo'} cliente</h3>
+    <div class="field">
+      <input type="file" accept="image/*" capture="environment" id="scanDocInput" style="display:none" onchange="scanDocument(this)">
+      <button type="button" class="btn btn-ghost" id="scanDocBtn" style="width:100%" onclick="document.getElementById('scanDocInput').click()">📷 Ler CPF/CNPJ, RG ou CNH pela foto</button>
+      <div id="scanDocStatus" style="font-size:12px;color:var(--steel-400);margin-top:6px"></div>
+    </div>
     <div class="field"><label>Nome / Razão social</label><input id="c_name" value="${c.name||''}"></div>
     <div class="field"><label>CPF / CNPJ</label><input id="c_doc" value="${c.doc||''}"></div>
     <div class="field"><label>WhatsApp / Telefone</label><input id="c_phone" value="${c.phone||''}" placeholder="(31) 90000-0000"></div>
@@ -570,6 +575,76 @@ function openClientModal(id) {
       <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="saveClient('${id||''}')">Salvar</button>
     </div>`);
+}
+// ============ ESCANEAR DOCUMENTO (OCR) ============
+let _ocrWorker = null;
+async function ensureOcrWorker() {
+  if (_ocrWorker) return _ocrWorker;
+  if (!window.Tesseract) {
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+      s.onload = resolve; s.onerror = () => reject(new Error('Falha ao carregar leitor de documentos'));
+      document.head.appendChild(s);
+    });
+  }
+  _ocrWorker = await Tesseract.createWorker('por');
+  return _ocrWorker;
+}
+function formatCpf(d) { return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4'); }
+function formatCnpj(d) { return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5'); }
+function parseDocumentText(text) {
+  const result = {};
+  const cnpjMatch = text.match(/\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}/);
+  const cpfMatches = text.match(/\d{3}\.?\d{3}\.?\d{3}-?\d{2}/g) || [];
+  if (cnpjMatch && cnpjMatch[0].replace(/\D/g, '').length === 14) {
+    result.doc = formatCnpj(cnpjMatch[0].replace(/\D/g, ''));
+  } else {
+    const cpf = cpfMatches.map(m => m.replace(/\D/g, '')).find(d => d.length === 11);
+    if (cpf) result.doc = formatCpf(cpf);
+  }
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const looksLikeName = l => /^[A-ZÀ-Ú][A-ZÀ-Ú\s]+$/.test(l) && l.split(/\s+/).length >= 2;
+  let name = '';
+  for (let i = 0; i < lines.length; i++) {
+    if (/^nome\b/i.test(lines[i])) {
+      const sameLine = lines[i].replace(/^nome[:\s]*/i, '').trim();
+      if (looksLikeName(sameLine)) name = sameLine;
+      else if (lines[i + 1] && looksLikeName(lines[i + 1])) name = lines[i + 1];
+      break;
+    }
+  }
+  if (!name) {
+    const skip = /REPUBLICA|FEDERATIVA|BRASIL|MINISTERIO|SECRETARIA|CARTEIRA|IDENTIDADE|REGISTRO|NACIONAL|VALIDADE|NASCIMENTO|FILIACAO|NATURALIDADE|ASSINATURA|GOVERNO|TRANSITO|HABILITACAO|CATEGORIA/i;
+    const candidates = lines.filter(l => looksLikeName(l) && !skip.test(l));
+    if (candidates.length) name = candidates.sort((a, b) => b.length - a.length)[0];
+  }
+  if (name) result.name = name.replace(/\s+/g, ' ').trim();
+  return result;
+}
+async function scanDocument(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const btn = document.getElementById('scanDocBtn');
+  const status = document.getElementById('scanDocStatus');
+  btn.disabled = true;
+  status.textContent = '🔍 Lendo documento...';
+  try {
+    const worker = await ensureOcrWorker();
+    const { data } = await worker.recognize(file);
+    const parsed = parseDocumentText(data.text || '');
+    if (parsed.name) document.getElementById('c_name').value = parsed.name;
+    if (parsed.doc) document.getElementById('c_doc').value = parsed.doc;
+    status.textContent = (parsed.name || parsed.doc)
+      ? '✅ Dados lidos — confira antes de salvar.'
+      : '⚠️ Não consegui ler os dados dessa foto. Preencha manualmente.';
+  } catch (e) {
+    console.warn('OCR falhou', e);
+    status.textContent = '⚠️ Não foi possível ler o documento. Preencha manualmente.';
+  } finally {
+    btn.disabled = false;
+    input.value = '';
+  }
 }
 async function saveClient(id) {
   const name = document.getElementById('c_name').value.trim();
