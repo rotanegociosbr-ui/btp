@@ -359,7 +359,8 @@
 </header>
 
 <nav>
-  <button class="tab active" data-view="painel" onclick="showView('painel')" data-role-tab="painel">Painel</button>
+  <button class="tab active" data-view="meudia" onclick="showView('meudia')" data-role-tab="meudia">Meu Dia</button>
+  <button class="tab" data-view="painel" onclick="showView('painel')" data-role-tab="painel">Painel</button>
   <button class="tab" data-view="atendimentos" onclick="showView('atendimentos')" data-role-tab="atendimentos">Atendimentos</button>
   <button class="tab" data-view="pecas" onclick="showView('pecas')" data-role-tab="pecas">Peças</button>
   <button class="tab" data-view="vendas" onclick="showView('vendas')" data-role-tab="vendas">Vendas</button>
@@ -372,7 +373,15 @@
 
 <main>
   <!-- PAINEL -->
-  <section class="view active" id="view-painel">
+  <!-- MEU DIA -->
+  <section class="view active" id="view-meudia">
+    <div class="view-head"><h2>Meu Dia</h2></div>
+    <div class="hint">O que precisa da sua atenção agora — clientes esperando resposta, pagamentos em aberto e orçamentos parados. Tudo filtrado pra você.</div>
+    <div id="meuDiaResumo"></div>
+    <div id="meuDiaConteudo"></div>
+  </section>
+
+  <section class="view" id="view-painel">
     <div class="view-head"><h2>Painel</h2></div>
     <div class="stat-grid">
       <div class="stat"><div class="label">Peças no pátio</div><div class="num" id="statParts">0</div></div>
@@ -698,7 +707,7 @@ function updateCloudStatus(state) {
 function renderAll() {
   renderPanel(); renderParts(); renderSales(); renderClients();
   refreshQuotePickers(); updateCommissionBadge(); renderMessages();
-  renderAtendimentos(); renderQuotesList(); applyRoleVisibility();
+  renderAtendimentos(); renderQuotesList(); applyRoleVisibility(); renderMeuDia();
 }
 
 // ============ Navegação ============
@@ -708,6 +717,7 @@ function showView(v) {
   document.getElementById('view-' + v).classList.add('active');
   document.querySelector('.tab[data-view="'+v+'"]').classList.add('active');
   window.scrollTo(0,0);
+  if (v === 'meudia') renderMeuDia();
   if (v === 'orcamento') refreshQuotePickers();
   if (v === 'mensagens') renderMessages();
   if (v === 'empresa') renderEmpresa();
@@ -718,10 +728,10 @@ function showView(v) {
 const PAPEIS = ['Administrador','Vendedor','Estoque','Financeiro'];
 let papelAtual = localStorage.getItem('btp_papel_atual') || 'Administrador';
 const ROLE_TABS = {
-  'Administrador': ['painel','atendimentos','pecas','vendas','clientes','orcamento','mensagens','empresa','relatorio'],
-  'Vendedor': ['painel','atendimentos','pecas','vendas','clientes','orcamento','mensagens'],
+  'Administrador': ['meudia','painel','atendimentos','pecas','vendas','clientes','orcamento','mensagens','empresa','relatorio'],
+  'Vendedor': ['meudia','painel','atendimentos','pecas','vendas','clientes','orcamento','mensagens'],
   'Estoque': ['painel','atendimentos','pecas'],
-  'Financeiro': ['painel','vendas','clientes','relatorio'],
+  'Financeiro': ['meudia','painel','vendas','clientes','relatorio'],
 };
 function applyRoleVisibility() {
   const allowed = ROLE_TABS[papelAtual] || ROLE_TABS['Administrador'];
@@ -1575,6 +1585,118 @@ function renderPanel() {
 function updateCommissionBadge() {
   const meu = sales.filter(s => s.vendedor === vendedorAtual).reduce((s,x)=>s+x.commission,0);
   document.getElementById('commissionTotal').textContent = brlShort(meu);
+}
+
+// ============ MEU DIA ============
+function diasDesde(ts) { return Math.floor((Date.now()-ts)/86400000); }
+function horasDesde(ts) { return Math.floor((Date.now()-ts)/3600000); }
+function renderMeuDia() {
+  const el = document.getElementById('meuDiaConteudo');
+  const resumoEl = document.getElementById('meuDiaResumo');
+  if (!el) return;
+
+  const semResposta = atendimentos
+    .filter(a => a.vendedor === vendedorAtual && ['Novo atendimento','Cliente respondeu'].includes(a.status) && (Date.now()-(a.updatedAt||a.createdAt))>24*3600*1000)
+    .sort((a,b)=>(a.updatedAt||a.createdAt)-(b.updatedAt||b.createdAt));
+
+  const pagamentosPendentes = sales
+    .filter(s => s.vendedor === vendedorAtual && !s.paid)
+    .sort((a,b)=>a.date-b.date);
+
+  const orcamentosParados = quotes
+    .filter(q => q.vendedor === vendedorAtual && ['Enviado','Negociação'].includes(q.status) && diasDesde(q.createdAt) >= 2)
+    .sort((a,b)=>a.createdAt-b.createdAt);
+
+  const total = semResposta.length + pagamentosPendentes.length + orcamentosParados.length;
+  resumoEl.innerHTML = `<div class="stat-grid">
+    <div class="stat"><div class="label">Clientes sem resposta</div><div class="num" style="color:var(--yellow)">${semResposta.length}</div></div>
+    <div class="stat"><div class="label">Pagamentos pendentes</div><div class="num" style="color:var(--stop)">${pagamentosPendentes.length}</div></div>
+    <div class="stat"><div class="label">Orçamentos parados</div><div class="num" style="color:var(--orange)">${orcamentosParados.length}</div></div>
+  </div>`;
+
+  if (!total) {
+    el.innerHTML = `<div class="empty"><div class="icon">🎉</div><h3>Tudo em dia!</h3><p>Nenhum atendimento, pagamento ou orçamento esperando você agora.</p></div>`;
+    return;
+  }
+
+  let html = '';
+  if (semResposta.length) {
+    html += `<div class="view-head" style="margin-top:10px"><h2 style="font-size:16px">💬 Clientes sem resposta</h2></div>`;
+    html += semResposta.map(a => {
+      const h = horasDesde(a.updatedAt||a.createdAt);
+      const tempo = h >= 48 ? Math.floor(h/24)+' dias' : h+'h';
+      return `<div class="card">
+        <div class="card-row">
+          <div style="flex:1">
+            <h3>${a.nome}</h3>
+            <div class="sub">${a.peca||'peça não identificada'} · esperando há <b style="color:var(--yellow)">${tempo}</b></div>
+          </div>
+        </div>
+        <div class="meta" style="margin-top:12px">
+          ${a.telefone?`<button class="btn btn-wa btn-sm" onclick="waAtend('${a.id}')">WhatsApp</button>`:''}
+          <button class="btn btn-ghost btn-sm" onclick="openAtendModal('${a.id}')">Ver atendimento</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  if (pagamentosPendentes.length) {
+    html += `<div class="view-head" style="margin-top:10px"><h2 style="font-size:16px">💰 Pagamentos pendentes</h2></div>`;
+    html += pagamentosPendentes.map(s => {
+      const dias = diasDesde(s.date);
+      return `<div class="card">
+        <div class="card-row">
+          <div style="flex:1">
+            <h3>${s.clientName}</h3>
+            <div class="sub">${fmtDate(s.date)} · em aberto há <b style="color:var(--stop)">${dias} dia(s)</b></div>
+          </div>
+          <div style="text-align:right"><div style="font-family:var(--font-display);font-size:18px;font-weight:700">${brl(s.total)}</div></div>
+        </div>
+        <div class="meta" style="margin-top:12px">
+          <button class="btn btn-wa btn-sm" onclick="cobrarVenda('${s.id}')">Cobrar no WhatsApp</button>
+          <button class="btn btn-go btn-sm" onclick="togglePaid('${s.id}')">✅ Marcar pago</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  if (orcamentosParados.length) {
+    html += `<div class="view-head" style="margin-top:10px"><h2 style="font-size:16px">📄 Orçamentos parados</h2></div>`;
+    html += orcamentosParados.map(q => `<div class="card">
+        <div class="card-row">
+          <div style="flex:1">
+            <h3>${q.clienteName}</h3>
+            <div class="sub">${q.items.length} peça(s) · parado há <b style="color:var(--orange)">${diasDesde(q.createdAt)} dia(s)</b></div>
+          </div>
+          <div style="text-align:right"><div style="font-family:var(--font-display);font-size:18px;font-weight:700">${brl(q.total)}</div></div>
+        </div>
+        <div class="meta" style="margin-top:12px">
+          <button class="btn btn-wa btn-sm" onclick="followUpOrcamento('${q.id}')">Follow-up no WhatsApp</button>
+          <button class="btn btn-ghost btn-sm" onclick="showView('orcamento')">Ver orçamentos</button>
+        </div>
+      </div>`).join('');
+  }
+  el.innerHTML = html;
+}
+function cobrarVenda(id) {
+  if (!confirmarForaDoHorario()) return;
+  const s = sales.find(x=>x.id===id);
+  if (!s) return;
+  const client = s.clientId ? clients.find(c=>c.id===s.clientId) : null;
+  const phone = client && client.phone ? '55'+client.phone.replace(/\D/g,'') : '';
+  if (!phone) { toast('Cliente sem telefone cadastrado', true); return; }
+  const dias = diasDesde(s.date);
+  const msg = MESSAGES.find(m => m.title === (dias >= 7 ? 'Cobrança — firme' : 'Cobrança — gentil'));
+  const firstName = client.name.split(' ')[0];
+  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg.build(firstName))}`, '_blank');
+}
+function followUpOrcamento(id) {
+  if (!confirmarForaDoHorario()) return;
+  const q = quotes.find(x=>x.id===id);
+  if (!q) return;
+  const client = q.clienteId ? clients.find(c=>c.id===q.clienteId) : null;
+  const phone = client && client.phone ? '55'+client.phone.replace(/\D/g,'') : '';
+  const msg = MESSAGES.find(m => m.title === 'Follow-up do orçamento');
+  const firstName = client ? client.name.split(' ')[0] : '';
+  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg.build(firstName))}`, '_blank');
 }
 
 // ============ ORÇAMENTO ============
