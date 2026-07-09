@@ -21,8 +21,32 @@
     --go-dim: #2e8449;
     --stop: #e05650;
     --line: #ffffff;
+    --deep-blue: #0d1b2e;
+    --orange: #ff8a1e;
+    --yellow: #ffc93c;
     --font-display: 'Arial Narrow', 'Helvetica Neue', sans-serif;
     --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  .hidden-role { display: none !important; }
+  .tag-orange { background: rgba(255,138,30,.18); color: var(--orange); }
+  .tag-blue { background: rgba(93,150,255,.18); color: #7fa8ff; }
+  .stage-track { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .stage-pill {
+    font-size: 10px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
+    padding: 4px 9px; border-radius: 20px; background: var(--steel-700); color: var(--steel-400);
+    border: 1px solid var(--steel-600); cursor: pointer;
+  }
+  .stage-pill.cur { background: var(--orange); color: var(--steel-900); border-color: var(--orange); }
+  .stage-pill.lost { background: rgba(224,86,80,.2); color: var(--stop); border-color: var(--stop); }
+  .urgencia-alta { color: var(--stop); font-weight: 700; }
+  .urgencia-media { color: var(--yellow); font-weight: 700; }
+  .urgencia-baixa { color: var(--steel-400); }
+  .timeline { margin-top: 10px; border-left: 2px solid var(--steel-600); padding-left: 12px; }
+  .timeline-item { font-size: 11px; color: var(--steel-400); margin-bottom: 6px; }
+  .timeline-item b { color: var(--steel-300); }
+  .faltantes-chip {
+    font-size: 10px; background: rgba(255,201,60,.15); color: var(--yellow);
+    border: 1px solid rgba(255,201,60,.35); border-radius: 6px; padding: 2px 7px; margin-right:4px;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { height: 100%; }
@@ -37,7 +61,7 @@
 
   /* ---------- Top bar ---------- */
   header {
-    background: linear-gradient(180deg, var(--steel-800), var(--steel-900));
+    background: linear-gradient(180deg, var(--steel-800), var(--deep-blue));
     border-bottom: 1px solid var(--steel-600);
     padding: 14px 18px;
     display: flex;
@@ -115,7 +139,7 @@
     transition: color .15s, border-color .15s;
     white-space: nowrap;
   }
-  .tab.active { color: var(--paper); border-bottom-color: var(--hazard); }
+  .tab.active { color: var(--paper); border-bottom-color: var(--orange); }
   .tab:hover:not(.active) { color: var(--steel-300); }
 
   /* ---------- Layout ---------- */
@@ -335,14 +359,15 @@
 </header>
 
 <nav>
-  <button class="tab active" data-view="painel" onclick="showView('painel')">Painel</button>
-  <button class="tab" data-view="pecas" onclick="showView('pecas')">Peças</button>
-  <button class="tab" data-view="vendas" onclick="showView('vendas')">Vendas</button>
-  <button class="tab" data-view="clientes" onclick="showView('clientes')">Clientes</button>
-  <button class="tab" data-view="orcamento" onclick="showView('orcamento')">Orçamento</button>
-  <button class="tab" data-view="mensagens" onclick="showView('mensagens')">Mensagens</button>
-  <button class="tab" data-view="empresa" onclick="showView('empresa')">Empresa</button>
-  <button class="tab" data-view="relatorio" onclick="showView('relatorio')">Relatório</button>
+  <button class="tab active" data-view="painel" onclick="showView('painel')" data-role-tab="painel">Painel</button>
+  <button class="tab" data-view="atendimentos" onclick="showView('atendimentos')" data-role-tab="atendimentos">Atendimentos</button>
+  <button class="tab" data-view="pecas" onclick="showView('pecas')" data-role-tab="pecas">Peças</button>
+  <button class="tab" data-view="vendas" onclick="showView('vendas')" data-role-tab="vendas">Vendas</button>
+  <button class="tab" data-view="clientes" onclick="showView('clientes')" data-role-tab="clientes">Clientes</button>
+  <button class="tab" data-view="orcamento" onclick="showView('orcamento')" data-role-tab="orcamento">Orçamento</button>
+  <button class="tab" data-view="mensagens" onclick="showView('mensagens')" data-role-tab="mensagens">Mensagens</button>
+  <button class="tab" data-view="empresa" onclick="showView('empresa')" data-role-tab="empresa">Empresa</button>
+  <button class="tab" data-view="relatorio" onclick="showView('relatorio')" data-role-tab="relatorio">Relatório</button>
 </nav>
 
 <main>
@@ -355,8 +380,44 @@
       <div class="stat go"><div class="label">Vendas no mês</div><div class="num" id="statSales">R$ 0</div></div>
       <div class="stat go"><div class="label">Comissão no mês</div><div class="num" id="statCommission" style="font-size:16px;line-height:1.6">R$ 0</div></div>
     </div>
+    <div class="view-head"><h2 style="font-size:18px">Atendimento do dia (funil WhatsApp)</h2></div>
+    <div class="stat-grid">
+      <div class="stat"><div class="label">Atendimentos hoje</div><div class="num" id="statAtendHoje">0</div></div>
+      <div class="stat"><div class="label">Orçamentos enviados</div><div class="num" id="statOrcEnviados">0</div></div>
+      <div class="stat go"><div class="label">Vendas fechadas</div><div class="num" id="statVendasFechadas">0</div></div>
+      <div class="stat"><div class="label">Orçamentos perdidos</div><div class="num" id="statOrcPerdidos" style="color:var(--stop)">0</div></div>
+      <div class="stat"><div class="label">Clientes sem resposta</div><div class="num" id="statSemResposta" style="color:var(--yellow)">0</div></div>
+      <div class="stat accent"><div class="label">Valor em negociação</div><div class="num" id="statEmNegociacao">R$ 0</div></div>
+    </div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px">
+      <div class="card" style="flex:1;min-width:220px;margin-bottom:0">
+        <div class="sub">Peças mais procuradas</div>
+        <div id="statPecasProcuradas" style="margin-top:8px"></div>
+      </div>
+      <div class="card" style="flex:1;min-width:220px;margin-bottom:0">
+        <div class="sub">Atendimentos por vendedor</div>
+        <div id="statAtendVendedor" style="margin-top:8px"></div>
+      </div>
+    </div>
     <div class="view-head"><h2 style="font-size:18px">Últimas vendas</h2></div>
     <div id="recentSales"></div>
+  </section>
+
+  <!-- ATENDIMENTOS (funil de WhatsApp) -->
+  <section class="view" id="view-atendimentos">
+    <div class="view-head">
+      <h2>Atendimentos</h2>
+      <span class="count" id="atendCount">0</span>
+      <button class="btn btn-primary push-right" onclick="openAtendModal()">+ Novo atendimento</button>
+    </div>
+    <div class="hint">Cole aqui a mensagem que o cliente mandou no WhatsApp. O sistema tenta identificar marca, modelo, ano, lado e o que ainda falta perguntar.</div>
+    <div class="field">
+      <label>Filtrar por etapa</label>
+      <select id="atendFilter" onchange="renderAtendimentos()">
+        <option value="">— Todas as etapas —</option>
+      </select>
+    </div>
+    <div id="atendList"></div>
   </section>
 
   <!-- PEÇAS -->
@@ -409,7 +470,13 @@
       <select id="quotePartPicker" onchange="addQuotePart(this.value)"></select>
     </div>
     <div id="quoteItems"></div>
+    <div class="field-row" id="quoteExtraFields" style="display:none;margin-top:4px">
+      <div class="field"><label>Frete (R$)</label><input id="quoteFrete" type="number" step="0.01" placeholder="0,00" oninput="renderQuote()"></div>
+      <div class="field"><label>Prazo</label><input id="quotePrazo" placeholder="Ex: 2 dias úteis"></div>
+    </div>
     <div class="total-box" id="quoteTotalBox" style="display:none">
+      <div class="total-line"><span>Peças</span><span id="quoteSubtotal">R$ 0</span></div>
+      <div class="total-line"><span>Frete</span><span id="quoteFreteShow">R$ 0</span></div>
       <div class="total-line grand"><span>Total</span><span id="quoteTotal">R$ 0</span></div>
     </div>
     <div id="quoteActions" style="display:none">
@@ -420,7 +487,19 @@
       <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
         <button class="btn btn-wa" style="flex:1;min-width:130px;justify-content:center" onclick="sendQuoteWhatsApp()">Enviar texto no WhatsApp</button>
       </div>
+      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn btn-go" style="flex:1;min-width:130px;justify-content:center" onclick="salvarOrcamento()">💾 Salvar orçamento (registra no funil)</button>
+      </div>
     </div>
+    <div class="view-head" style="margin-top:26px"><h2 style="font-size:18px">Orçamentos salvos</h2></div>
+    <div class="field">
+      <label>Filtrar por status</label>
+      <select id="quoteStatusFilter" onchange="renderQuotesList()">
+        <option value="">— Todos —</option>
+        <option>Enviado</option><option>Negociação</option><option>Aprovado</option><option>Perdido</option><option>Vendido</option>
+      </select>
+    </div>
+    <div id="quotesSavedList"></div>
   </section>
 
   <!-- MENSAGENS -->
@@ -439,6 +518,10 @@
     <div class="view-head"><h2>Empresa</h2></div>
     <div class="hint">Dados da BTP usados nos orçamentos e mensagens. Toque em qualquer item pra copiar.</div>
     <div class="card" onclick="copyText('${''}')" id="empresaCard"></div>
+    <div class="view-head" style="margin-top:20px"><h2 style="font-size:18px">IA (opcional)</h2></div>
+    <div class="hint">Cole aqui sua própria chave da OpenAI pra ativar sugestão de resposta, resumo de atendimento e classificação de urgência com IA de verdade. A chave fica <b>só neste aparelho</b> (nunca é enviada pra nuvem ou compartilhada). Sem chave, o app continua funcionando com a interpretação automática simples.</div>
+    <div class="field"><label>Chave da OpenAI (sk-...)</label><input id="openaiKeyInput" type="password" placeholder="sk-..." onchange="salvarOpenAIKey(this.value)"></div>
+    <div id="openaiKeyStatus" class="sub"></div>
   </section>
 
   <!-- RELATÓRIO -->
@@ -493,7 +576,7 @@ const DB = {
   }
 };
 
-let clients = [], parts = [], sales = [], quote = [];
+let clients = [], parts = [], sales = [], quote = [], atendimentos = [], quotes = [];
 
 // ====== SINCRONIZAÇÃO NA NUVEM (Supabase) ======
 const CLOUD = {
@@ -557,6 +640,9 @@ async function loadAll() {
   clients = await DB.get('clients', []);
   parts = await DB.get('parts', []);
   sales = await DB.get('sales', []);
+  // atendimentos e orçamentos ainda são só locais (não há tabela no Supabase pra eles ainda)
+  atendimentos = await DB.get('atendimentos', []);
+  quotes = await DB.get('quotes', []);
   renderAll();
   updateCloudStatus('sync');
   // depois tenta buscar da nuvem
@@ -609,6 +695,7 @@ function updateCloudStatus(state) {
 function renderAll() {
   renderPanel(); renderParts(); renderSales(); renderClients();
   refreshQuotePickers(); updateCommissionBadge(); renderMessages();
+  renderAtendimentos(); renderQuotesList(); applyRoleVisibility();
 }
 
 // ============ Navegação ============
@@ -625,7 +712,24 @@ function showView(v) {
 }
 
 // ============ Vendedor (comissões separadas) ============
+const PAPEIS = ['Administrador','Vendedor','Estoque','Financeiro'];
+let papelAtual = localStorage.getItem('btp_papel_atual') || 'Administrador';
+const ROLE_TABS = {
+  'Administrador': ['painel','atendimentos','pecas','vendas','clientes','orcamento','mensagens','empresa','relatorio'],
+  'Vendedor': ['painel','atendimentos','pecas','vendas','clientes','orcamento','mensagens'],
+  'Estoque': ['painel','atendimentos','pecas'],
+  'Financeiro': ['painel','vendas','clientes','relatorio'],
+};
+function applyRoleVisibility() {
+  const allowed = ROLE_TABS[papelAtual] || ROLE_TABS['Administrador'];
+  document.querySelectorAll('.tab[data-role-tab]').forEach(btn => {
+    btn.classList.toggle('hidden-role', !allowed.includes(btn.getAttribute('data-role-tab')));
+  });
+  const activeTab = document.querySelector('.tab.active');
+  if (activeTab && activeTab.classList.contains('hidden-role')) showView('painel');
+}
 function ensureVendedorAtual() {
+  applyRoleVisibility();
   if (!VENDEDORES.includes(vendedorAtual)) openUserSwitch(true);
   else renderUserSwitch();
 }
@@ -636,19 +740,32 @@ function renderUserSwitch() {
 function openUserSwitch(forced) {
   openModal(`
     <h3>Quem está usando o app agora?</h3>
-    <div class="hint">Isso define de quem são os clientes cadastrados neste aparelho e de quem é a comissão das vendas.</div>
-    <div class="modal-actions" style="flex-direction:column;gap:10px">
+    <div class="hint">Isso define de quem são os clientes cadastrados neste aparelho, de quem é a comissão das vendas e o que aparece no menu.</div>
+    <div class="field"><label>Vendedor</label></div>
+    <div class="modal-actions" style="flex-direction:column;gap:8px">
       ${VENDEDORES.map(v => `<button class="btn ${v===vendedorAtual?'btn-primary':'btn-ghost'}" style="width:100%;justify-content:center" onclick="setVendedorAtual('${v}')">${v}</button>`).join('')}
     </div>
-    ${forced ? '' : '<div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">Cancelar</button></div>'}
+    <div class="field" style="margin-top:18px"><label>Função (define o que aparece no menu)</label></div>
+    <div class="modal-actions" style="flex-direction:column;gap:8px">
+      ${PAPEIS.map(p => `<button class="btn ${p===papelAtual?'btn-primary':'btn-ghost'}" style="width:100%;justify-content:center" onclick="setPapelAtual('${p}')">${p}</button>`).join('')}
+    </div>
+    <div class="hint" style="margin-top:14px;border-left-color:var(--yellow)">⚠️ Isso só organiza a tela pra cada função — não é uma trava de segurança real, já que os dados ficam no mesmo banco pra todo mundo.</div>
+    <div class="modal-actions"><button class="btn btn-primary" style="width:100%;justify-content:center" onclick="closeModal()" ${VENDEDORES.includes(vendedorAtual)?'':'disabled'}>Concluir</button></div>
   `);
 }
 function setVendedorAtual(v) {
   vendedorAtual = v;
   localStorage.setItem('btp_vendedor_atual', v);
   renderUserSwitch();
-  closeModal();
+  openUserSwitch(false);
   toast('Você é: ' + v);
+}
+function setPapelAtual(p) {
+  papelAtual = p;
+  localStorage.setItem('btp_papel_atual', p);
+  applyRoleVisibility();
+  openUserSwitch(false);
+  toast('Função: ' + p);
 }
 function commissionByVendedor(list) {
   const totals = {};
@@ -687,17 +804,22 @@ document.getElementById('modalBg').addEventListener('click', e => {
 });
 
 // ============ CLIENTES ============
+const CLIENT_TYPES = ['Caminhoneiro','Oficina/Mecânica','Transportadora','Lojista/Revenda','Seguradora','Outro'];
 function openClientModal(id) {
   const c = id ? clients.find(x => x.id === id) : {};
+  const typeList = (c.type && !CLIENT_TYPES.includes(c.type)) ? [c.type, ...CLIENT_TYPES] : CLIENT_TYPES;
   openModal(`
     <h3>${id ? 'Editar' : 'Novo'} cliente</h3>
     <div class="field"><label>Nome / Razão social</label><input id="c_name" value="${c.name||''}"></div>
-    <div class="field"><label>CPF / CNPJ</label><input id="c_doc" value="${c.doc||''}"></div>
+    <div class="field-row">
+      <div class="field"><label>CPF / CNPJ</label><input id="c_doc" value="${c.doc||''}"></div>
+      <div class="field"><label>Cidade/UF</label><input id="c_city" value="${c.city||''}" placeholder="Ex: Betim/MG"></div>
+    </div>
     <div class="field"><label>WhatsApp / Telefone</label><input id="c_phone" value="${c.phone||''}" placeholder="(31) 90000-0000"></div>
     <div class="field"><label>E-mail (para envio de nota fiscal)</label><input id="c_email" type="email" value="${c.email||''}" placeholder="cliente@email.com"></div>
     <div class="field"><label>Tipo</label>
       <select id="c_type">
-        ${['Mecânico/Oficina','Revenda','Consumidor final','Frota/Transportadora'].map(t=>`<option ${c.type===t?'selected':''}>${t}</option>`).join('')}
+        ${typeList.map(t=>`<option ${c.type===t?'selected':''}>${t}</option>`).join('')}
       </select>
     </div>
     <div class="field"><label>Vendedor (dono da comissão)</label>
@@ -705,6 +827,7 @@ function openClientModal(id) {
         ${VENDEDORES.map(v=>`<option ${(c.vendedor||vendedorAtual)===v?'selected':''}>${v}</option>`).join('')}
       </select>
     </div>
+    <div class="field"><label>Observações importantes</label><textarea id="c_obs" rows="2" placeholder="Ex: sempre pede fiado, cliente antigo, atenção com atraso...">${c.obs||''}</textarea></div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="saveClient('${id||''}')">Salvar</button>
@@ -716,10 +839,12 @@ async function saveClient(id) {
   const data = {
     name,
     doc: document.getElementById('c_doc').value.trim(),
+    city: document.getElementById('c_city').value.trim(),
     phone: document.getElementById('c_phone').value.trim(),
     email: document.getElementById('c_email').value.trim(),
     type: document.getElementById('c_type').value,
     vendedor: document.getElementById('c_vendedor').value,
+    obs: document.getElementById('c_obs').value.trim(),
   };
   let saved;
   if (id) { saved = clients.find(c=>c.id===id); Object.assign(saved, data); }
@@ -757,13 +882,14 @@ function renderClients() {
             <h3>${c.name}</h3>
             ${c.vendedor?`<span class="tag">👤 ${c.vendedor}</span>`:''}
           </div>
-          <div class="sub">${c.type}${c.doc?' · '+c.doc:''}</div>
+          <div class="sub">${c.type}${c.doc?' · '+c.doc:''}${c.city?' · '+c.city:''}</div>
           <div class="meta">
             ${c.phone?`<span>📱 <b>${c.phone}</b></span>`:''}
             ${c.email?`<span>✉️ <b>${c.email}</b></span>`:''}
             <span>🧾 <b>${cs.length}</b> compras</span>
             <span>💰 <b>${brl(spent)}</b></span>
           </div>
+          ${c.obs?`<div class="meta" style="margin-top:6px"><span style="color:var(--yellow)">📝 ${c.obs}</span></div>`:''}
         </div>
       </div>
       <div class="meta" style="margin-top:12px">
@@ -781,26 +907,320 @@ function waClient(id) {
   window.open(`https://wa.me/55${phone}`, '_blank');
 }
 
+// ============ ATENDIMENTOS (FUNIL DE WHATSAPP) ============
+const FUNNEL_STAGES = ['Novo atendimento','Cliente respondeu','Peça identificada','Orçamento enviado','Negociação','Pagamento pendente','Pago','Separação da peça','Enviado/retirado','Venda concluída'];
+const STAGE_PERDIDO = 'Perdido';
+const MARCAS_CAMINHAO = [['iveco','Iveco'],['scania','Scania'],['volvo','Volvo'],['man','MAN'],['mercedes-benz','Mercedes-Benz'],['mercedes','Mercedes-Benz'],[' mb ','Mercedes-Benz'],['volkswagen','Volkswagen'],['vw ','Volkswagen'],['daf','DAF'],['agrale','Agrale'],['ford cargo','Ford Cargo'],['ford','Ford'],['international','International']];
+const MODELOS_CAMINHAO = ['stralis','daily','tector','vertis','trakker','fh16','fh','fm','vm','nh','actros','axor','atego','constellation','delivery','worker','tgx','tgs','tgm','sprinter','accelo','cargo'];
+const PECAS_KEYWORDS = ['chave de seta','diferencial completo','diferencial','motor de partida','cabeçote','bomba injetora','bico injetor','turbina','radiador','intercooler','câmbio','cambio','embreagem','disco de embreagem','platô','cardan','suspensão a ar','suspensão','feixe de molas','molas','freio a ar','pastilha de freio','tambor de freio','lona de freio','freio','porta','para-brisa','vidro','farol','lanterna','paralama','longarina','eixo traseiro','eixo dianteiro','eixo','tanque de combustível','tanque','maçaneta','retrovisor','alternador','motor de arranque','bloco do motor','virabrequim','comando de válvulas','junta do cabeçote','correia','mangueira','escapamento','chassi','quinta roda','pneu','bateria'];
+const LADO_KEYWORDS = ['porta','farol','lanterna','retrovisor','paralama','maçaneta','eixo','longarina','vidro'];
+const MEDIDA_KEYWORDS = ['tanque','pneu','bateria','correia','mangueira','escapamento'];
+
+function classificarUrgencia(t) {
+  if (/urgent|pra ontem|com pressa|agora mesmo|preciso hoje|preciso urgente|preciso pra hoje/.test(t)) return 'Alta';
+  if (/só de olho|so de olho|mais pra frente|futuramente|sem pressa|só cotando|so cotando|só pesquisando/.test(t)) return 'Baixa';
+  return 'Média';
+}
+function interpretarMensagem(textoOriginal) {
+  const t = (textoOriginal||'').toLowerCase();
+  let marca = '';
+  for (const [k,label] of MARCAS_CAMINHAO) { if (t.includes(k)) { marca = label; break; } }
+  let modelo = '';
+  for (const m of MODELOS_CAMINHAO) { if (t.includes(m)) { modelo = m.toUpperCase(); break; } }
+  let peca = '';
+  for (const p of PECAS_KEYWORDS) { if (t.includes(p)) { peca = p; break; } }
+  let lado = '';
+  if (/esquerd/.test(t)) lado = 'Esquerdo';
+  else if (/direit/.test(t)) lado = 'Direito';
+  const anoMatch = t.match(/\b(19|20)\d{2}\b/);
+  const ano = anoMatch ? anoMatch[0] : '';
+  const placaMatch = textoOriginal.match(/\b[A-Za-z]{3}[-\s]?\d[A-Za-z0-9]\d{2}\b/);
+  const placa = placaMatch ? placaMatch[0].toUpperCase() : '';
+  const medidaMatch = t.match(/\d+[\.,]?\d*\s?(litros?|l\b|polegadas?|"|x\s?\d+|\/\d+)/);
+  const medidas = medidaMatch ? medidaMatch[0] : '';
+
+  const faltantes = [];
+  if (!marca && !modelo) faltantes.push('modelo do caminhão');
+  if (!ano) faltantes.push('ano');
+  if (peca && LADO_KEYWORDS.some(k=>peca.includes(k)) && !lado) faltantes.push('lado (esquerdo/direito)');
+  if (peca && MEDIDA_KEYWORDS.some(k=>peca.includes(k)) && !medidas) faltantes.push('medida/referência');
+  faltantes.push('foto da peça antiga');
+
+  const urgencia = classificarUrgencia(t);
+  const intencao = /reclama|problema|veio quebrad|não funcionou|nao funcionou|defeito/.test(t) ? 'Reclamação' : 'Pedido de peça';
+  return { marca, modelo, peca, lado, ano, placa, medidas, faltantes, urgencia, intencao };
+}
+
+let _atendFotos = [];
+function openAtendModal(id) {
+  const a = id ? atendimentos.find(x=>x.id===id) : {};
+  _atendFotos = Array.isArray(a.fotos) ? [...a.fotos] : [];
+  openModal(`
+    <h3>${id ? 'Editar' : 'Novo'} atendimento</h3>
+    <div class="field"><label>Vincular a cliente cadastrado (opcional)</label>
+      <select id="a_cliente" onchange="preencherClienteAtend(this.value)">
+        <option value="">— Lead novo (sem cadastro ainda) —</option>
+        ${clients.map(c=>`<option value="${c.id}" ${a.clienteId===c.id?'selected':''}>${c.name}</option>`).join('')}
+      </select>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Nome</label><input id="a_nome" value="${a.nome||''}"></div>
+      <div class="field"><label>Telefone/WhatsApp</label><input id="a_telefone" value="${a.telefone||''}" placeholder="(31) 90000-0000"></div>
+    </div>
+    <div class="field"><label>Mensagem do cliente (cole aqui)</label><textarea id="a_msg" rows="3" placeholder="Ex: Tem chave de seta do Iveco Stralis?">${a.mensagem||''}</textarea></div>
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <button class="btn btn-ghost" style="flex:1;justify-content:center" onclick="interpretarAgora()">🔍 Interpretar mensagem</button>
+      ${id?`<button class="btn btn-ghost" style="flex:1;justify-content:center" onclick="sugerirRespostaIA('${id}')">🤖 Sugerir resposta (IA)</button>`:''}
+    </div>
+    <div id="a_analise"></div>
+    <div class="field-row">
+      <div class="field"><label>Marca</label><input id="a_marca" value="${a.marca||''}"></div>
+      <div class="field"><label>Modelo</label><input id="a_modelo" value="${a.modelo||''}"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Ano</label><input id="a_ano" value="${a.ano||''}"></div>
+      <div class="field"><label>Lado</label>
+        <select id="a_lado">${['—','Esquerdo','Direito','N/A'].map(o=>`<option ${a.lado===o||(!a.lado&&o==='—')?'selected':''}>${o}</option>`).join('')}</select>
+      </div>
+    </div>
+    <div class="field"><label>Peça identificada</label><input id="a_peca" value="${a.peca||''}" placeholder="Ex: chave de seta"></div>
+    <div class="field"><label>Placa (se necessário)</label><input id="a_placa" value="${a.placa||''}"></div>
+    <div class="field"><label>Medidas/referência</label><input id="a_medidas" value="${a.medidas||''}"></div>
+    <div class="field"><label>Foto da peça antiga</label><input id="a_photo" type="file" accept="image/*" multiple onchange="previewAtendPhoto(this)"></div>
+    <div id="atendPhotoPreview" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"></div>
+    <div class="field-row">
+      <div class="field"><label>Urgência</label>
+        <select id="a_urgencia">${['Alta','Média','Baixa'].map(o=>`<option ${a.urgencia===o?'selected':''}>${o}</option>`).join('')}</select>
+      </div>
+      <div class="field"><label>Vendedor</label>
+        <select id="a_vendedor">${VENDEDORES.map(v=>`<option ${(a.vendedor||vendedorAtual)===v?'selected':''}>${v}</option>`).join('')}</select>
+      </div>
+    </div>
+    <div class="field"><label>Etapa</label>
+      <select id="a_status">${[...FUNNEL_STAGES, STAGE_PERDIDO].map(s=>`<option ${(a.status||FUNNEL_STAGES[0])===s?'selected':''}>${s}</option>`).join('')}</select>
+    </div>
+    <div class="field"><label>Notas</label><textarea id="a_notas" rows="2">${a.notas||''}</textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveAtend('${id||''}')">Salvar</button>
+    </div>`);
+  renderAtendPhotoPreview();
+}
+function preencherClienteAtend(clienteId) {
+  if (!clienteId) return;
+  const c = clients.find(x=>x.id===clienteId);
+  if (!c) return;
+  document.getElementById('a_nome').value = c.name;
+  document.getElementById('a_telefone').value = c.phone||'';
+}
+function interpretarAgora() {
+  const texto = document.getElementById('a_msg').value.trim();
+  if (!texto) { toast('Cole a mensagem do cliente primeiro', true); return; }
+  const r = interpretarMensagem(texto);
+  if (r.marca) document.getElementById('a_marca').value = r.marca;
+  if (r.modelo) document.getElementById('a_modelo').value = r.modelo;
+  if (r.peca) document.getElementById('a_peca').value = r.peca;
+  if (r.ano) document.getElementById('a_ano').value = r.ano;
+  if (r.placa) document.getElementById('a_placa').value = r.placa;
+  if (r.medidas) document.getElementById('a_medidas').value = r.medidas;
+  if (r.lado && r.lado !== '—') document.getElementById('a_lado').value = r.lado;
+  document.getElementById('a_urgencia').value = r.urgencia;
+  const faltando = r.faltantes.filter(f => f !== 'foto da peça antiga' || !_atendFotos.length);
+  document.getElementById('a_analise').innerHTML = `
+    <div class="hint" style="border-left-color:var(--orange)">
+      <b>Intenção:</b> ${r.intencao} · <b>Urgência:</b> <span class="urgencia-${r.urgencia.toLowerCase()==='média'?'media':r.urgencia.toLowerCase()}">${r.urgencia}</span><br>
+      ${faltando.length ? '<b>Ainda falta perguntar:</b> ' + faltando.map(f=>`<span class="faltantes-chip">${f}</span>`).join(' ') : '✅ Informações completas pra orçar.'}
+    </div>`;
+}
+function renderAtendPhotoPreview() {
+  const el = document.getElementById('atendPhotoPreview');
+  if (!el) return;
+  el.innerHTML = _atendFotos.map((ph,i)=>`
+    <div style="position:relative">
+      <img src="${ph}" style="width:64px;height:64px;object-fit:cover;border-radius:8px">
+      <button onclick="_atendFotos.splice(${i},1);renderAtendPhotoPreview()" style="position:absolute;top:-6px;right:-6px;background:var(--stop);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:12px;cursor:pointer">✕</button>
+    </div>`).join('');
+}
+function previewAtendPhoto(input) {
+  const files = Array.from(input.files||[]);
+  files.forEach(f => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const max = 500; let {width, height} = img;
+        if (width > height && width > max) { height = height*max/width; width = max; }
+        else if (height > max) { width = width*max/height; height = max; }
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        _atendFotos.push(canvas.toDataURL('image/jpeg', 0.7));
+        renderAtendPhotoPreview();
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(f);
+  });
+  input.value = '';
+}
+async function saveAtend(id) {
+  const nome = document.getElementById('a_nome').value.trim();
+  if (!nome) { toast('Informe o nome (ou vincule um cliente)', true); return; }
+  const novoStatus = document.getElementById('a_status').value;
+  const ladoVal = document.getElementById('a_lado').value;
+  const data = {
+    clienteId: document.getElementById('a_cliente').value || null,
+    nome,
+    telefone: document.getElementById('a_telefone').value.trim(),
+    mensagem: document.getElementById('a_msg').value.trim(),
+    marca: document.getElementById('a_marca').value.trim(),
+    modelo: document.getElementById('a_modelo').value.trim(),
+    ano: document.getElementById('a_ano').value.trim(),
+    lado: ladoVal === '—' ? '' : ladoVal,
+    peca: document.getElementById('a_peca').value.trim(),
+    placa: document.getElementById('a_placa').value.trim(),
+    medidas: document.getElementById('a_medidas').value.trim(),
+    fotos: _atendFotos,
+    urgencia: document.getElementById('a_urgencia').value,
+    vendedor: document.getElementById('a_vendedor').value,
+    notas: document.getElementById('a_notas').value.trim(),
+    updatedAt: Date.now(),
+  };
+  let saved;
+  if (id) {
+    saved = atendimentos.find(a=>a.id===id);
+    const statusMudou = saved.status !== novoStatus;
+    Object.assign(saved, data);
+    if (statusMudou) { saved.status = novoStatus; saved.history.push({status:novoStatus, at:Date.now()}); }
+  } else {
+    saved = { id: uid(), ...data, status: novoStatus, createdAt: Date.now(), history: [{status:novoStatus, at:Date.now()}] };
+    atendimentos.push(saved);
+  }
+  await DB.set('atendimentos', atendimentos);
+  closeModal(); renderAtendimentos(); renderPanel(); toast('Atendimento salvo');
+}
+async function deleteAtend(id) {
+  if (!confirm('Excluir este atendimento?')) return;
+  atendimentos = atendimentos.filter(a=>a.id!==id);
+  await DB.set('atendimentos', atendimentos);
+  renderAtendimentos(); renderPanel(); toast('Atendimento excluído');
+}
+async function setEtapa(id, status) {
+  const a = atendimentos.find(x=>x.id===id);
+  if (!a || a.status === status) return;
+  a.status = status; a.updatedAt = Date.now();
+  a.history.push({status, at:Date.now()});
+  await DB.set('atendimentos', atendimentos);
+  renderAtendimentos(); renderPanel();
+  toast('Etapa: ' + status);
+}
+function waAtend(id) {
+  const a = atendimentos.find(x=>x.id===id);
+  const phone = (a.telefone||'').replace(/\D/g,'');
+  if (!phone) { toast('Sem telefone', true); return; }
+  window.open(`https://wa.me/55${phone}`, '_blank');
+}
+function criarOrcamentoDoAtendimento(id) {
+  const a = atendimentos.find(x=>x.id===id);
+  window._atendVinculado = id;
+  quote = [];
+  showView('orcamento');
+  refreshQuotePickers();
+  const sel = document.getElementById('quoteClient');
+  if (a.clienteId && sel) sel.value = a.clienteId;
+  renderQuote();
+  toast('Monte o orçamento — ele será vinculado a esse atendimento');
+}
+function fmtDateHora(ts) {
+  return new Date(ts).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+}
+function renderAtendimentos() {
+  const filterEl = document.getElementById('atendFilter');
+  if (filterEl && !filterEl.dataset.filled) {
+    filterEl.innerHTML = `<option value="">— Todas as etapas —</option>` +
+      [...FUNNEL_STAGES, STAGE_PERDIDO].map(s=>`<option value="${s}">${s}</option>`).join('');
+    filterEl.dataset.filled = '1';
+  }
+  const filtro = filterEl ? filterEl.value : '';
+  const countEl = document.getElementById('atendCount');
+  if (countEl) countEl.textContent = atendimentos.length;
+  const el = document.getElementById('atendList');
+  if (!el) return;
+  const list = [...atendimentos].filter(a => !filtro || a.status === filtro).sort((a,b)=>b.updatedAt-a.updatedAt || b.createdAt-a.createdAt);
+  if (!list.length) {
+    el.innerHTML = atendimentos.length
+      ? `<div class="empty"><div class="icon">🔍</div><h3>Nada nessa etapa</h3></div>`
+      : `<div class="empty"><div class="icon">💬</div><h3>Nenhum atendimento ainda</h3><p>Cole a primeira mensagem de WhatsApp que chegou pra começar o funil.</p><button class="btn btn-primary" onclick="openAtendModal()">+ Novo atendimento</button></div>`;
+    return;
+  }
+  el.innerHTML = list.map(a => {
+    const parsedNow = a.mensagem ? interpretarMensagem(a.mensagem) : null;
+    const faltantesAtuais = parsedNow ? parsedNow.faltantes.filter(f => f !== 'foto da peça antiga' || !(a.fotos||[]).length) : [];
+    const resumo = [a.marca, a.modelo, a.ano].filter(Boolean).join(' ');
+    const semResposta = ['Novo atendimento','Cliente respondeu'].includes(a.status) && (Date.now() - (a.updatedAt||a.createdAt)) > 24*3600*1000;
+    return `<div class="card">
+      <div class="card-row">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <h3>${a.nome}</h3>
+            ${a.vendedor?`<span class="tag">👤 ${a.vendedor}</span>`:''}
+            <span class="tag urgencia-${a.urgencia==='Alta'?'alta':a.urgencia==='Baixa'?'baixa':'media'}" style="background:none;border:1px solid currentColor">${a.urgencia||'Média'}</span>
+            ${semResposta?'<span class="tag tag-hold">⏰ Sem resposta 24h+</span>':''}
+          </div>
+          <div class="sub">${a.peca||'Peça não identificada'}${resumo?' · '+resumo:''}${a.lado?' · '+a.lado:''}</div>
+          ${a.mensagem?`<div class="meta" style="margin-top:6px"><span style="color:var(--steel-400)">💬 "${a.mensagem.slice(0,120)}${a.mensagem.length>120?'…':''}"</span></div>`:''}
+          ${faltantesAtuais.length?`<div style="margin-top:8px">${faltantesAtuais.map(f=>`<span class="faltantes-chip">${f}</span>`).join(' ')}</div>`:''}
+        </div>
+      </div>
+      <div class="stage-track">
+        ${[...FUNNEL_STAGES, STAGE_PERDIDO].map(s=>`<span class="stage-pill ${a.status===s?(s===STAGE_PERDIDO?'lost':'cur'):''}" onclick="setEtapa('${a.id}','${s}')">${s}</span>`).join('')}
+      </div>
+      <div class="meta" style="margin-top:12px">
+        ${a.telefone?`<button class="btn btn-wa btn-sm" onclick="waAtend('${a.id}')">WhatsApp</button>`:''}
+        <button class="btn btn-primary btn-sm" onclick="criarOrcamentoDoAtendimento('${a.id}')">Criar orçamento</button>
+        <button class="btn btn-ghost btn-sm" onclick="openAtendModal('${a.id}')">Editar</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteAtend('${a.id}')">Excluir</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
 // ============ PEÇAS ============
+const PART_CATEGORIES = ['Motor','Câmbio/Transmissão','Cardan/Diferencial','Suspensão','Freios','Elétrica','Cabine/Lataria','Vidros','Escapamento','Tanque/Combustível','Rodas/Pneus','Outros'];
+const PART_CONDICOES = ['Nova','Usada','Recondicionada'];
+const PART_STATUSES = ['Disponível','Reservada','Aguardando conferência','Vendida'];
 function openPartModal(id) {
   const p = id ? parts.find(x => x.id === id) : {};
+  const condList = (p.cond && !PART_CONDICOES.includes(p.cond)) ? [p.cond, ...PART_CONDICOES] : PART_CONDICOES;
+  const catList = (p.category && !PART_CATEGORIES.includes(p.category)) ? [p.category, ...PART_CATEGORIES] : PART_CATEGORIES;
   openModal(`
     <h3>${id ? 'Editar' : 'Nova'} peça</h3>
     <div class="field"><label>Descrição da peça</label><input id="p_name" value="${p.name||''}" placeholder="Ex: Cabeçote motor MWM"></div>
     <div class="field-row">
       <div class="field"><label>Código interno</label><input id="p_code" value="${p.code||''}" placeholder="Ex: CB-018"></div>
-      <div class="field"><label>Preço (R$)</label><input id="p_price" type="number" step="0.01" value="${p.price||''}" placeholder="0,00"></div>
+      <div class="field"><label>Categoria</label>
+        <select id="p_category">${catList.map(t=>`<option ${p.category===t?'selected':''}>${t}</option>`).join('')}</select>
+      </div>
     </div>
-    <div class="field"><label>Veículo de origem</label><input id="p_vehicle" value="${p.vehicle||''}" placeholder="Ex: Mercedes-Benz 1620 · 2008"></div>
+    <div class="field-row">
+      <div class="field"><label>Preço de venda (R$)</label><input id="p_price" type="number" step="0.01" value="${p.price||''}" placeholder="0,00"></div>
+      <div class="field"><label>Valor mínimo permitido (R$)</label><input id="p_minprice" type="number" step="0.01" value="${p.minPrice||''}" placeholder="0,00"></div>
+    </div>
+    <div class="field"><label>Veículo de origem (marca, modelo, ano)</label><input id="p_vehicle" value="${p.vehicle||''}" placeholder="Ex: Mercedes-Benz 1620 · 2008"></div>
     <div class="field"><label>Chassi de origem (rastreabilidade Detran)</label><input id="p_chassis" value="${p.chassis||''}" placeholder="17 dígitos"></div>
     <div class="field-row">
-      <div class="field"><label>Estado</label>
-        <select id="p_cond">${['Bom','Regular','Recondicionado','Sucata útil'].map(t=>`<option ${p.cond===t?'selected':''}>${t}</option>`).join('')}</select>
+      <div class="field"><label>Condição</label>
+        <select id="p_cond">${condList.map(t=>`<option ${p.cond===t?'selected':''}>${t}</option>`).join('')}</select>
       </div>
       <div class="field"><label>Status</label>
-        <select id="p_status">${['Disponível','Reservada','Vendida'].map(t=>`<option ${p.status===t?'selected':''}>${t}</option>`).join('')}</select>
+        <select id="p_status">${PART_STATUSES.map(t=>`<option ${p.status===t?'selected':''}>${t}</option>`).join('')}</select>
       </div>
     </div>
+    <div class="field-row">
+      <div class="field"><label>Estoque disponível</label><input id="p_qty" type="number" step="1" value="${p.qty!=null?p.qty:1}"></div>
+      <div class="field"><label>Localização no pátio/estoque</label><input id="p_location" value="${p.location||''}" placeholder="Ex: Galpão 2 · Prateleira C"></div>
+    </div>
+    <div class="field"><label>Observações</label><textarea id="p_obs" rows="2">${p.obs||''}</textarea></div>
     <div class="field"><label>Fotos (pode adicionar várias)</label><input id="p_photo" type="file" accept="image/*" multiple onchange="previewPhoto(this)"></div>
     <div id="photoPreview" style="display:flex;gap:8px;flex-wrap:wrap"></div>
     <div class="modal-actions">
@@ -846,14 +1266,22 @@ function previewPhoto(input) {
 async function savePart(id) {
   const name = document.getElementById('p_name').value.trim();
   if (!name) { toast('Informe a descrição da peça', true); return; }
+  const price = parseFloat(document.getElementById('p_price').value) || 0;
+  const minPrice = parseFloat(document.getElementById('p_minprice').value) || 0;
+  if (minPrice && price < minPrice) { toast('Preço de venda não pode ser menor que o valor mínimo', true); return; }
   const data = {
     name,
     code: document.getElementById('p_code').value.trim(),
-    price: parseFloat(document.getElementById('p_price').value) || 0,
+    category: document.getElementById('p_category').value,
+    price,
+    minPrice,
     vehicle: document.getElementById('p_vehicle').value.trim(),
     chassis: document.getElementById('p_chassis').value.trim(),
     cond: document.getElementById('p_cond').value,
     status: document.getElementById('p_status').value,
+    qty: parseInt(document.getElementById('p_qty').value) || 0,
+    location: document.getElementById('p_location').value.trim(),
+    obs: document.getElementById('p_obs').value.trim(),
     photos: window._photos || [],
     photo: (window._photos && window._photos[0]) || '',
   };
@@ -884,6 +1312,7 @@ function openGallery(id) {
     </div>`);
 }
 function sharePartWhatsApp(id) {
+  if (!confirmarForaDoHorario()) return;
   const p = parts.find(x=>x.id===id);
   let msg = `*BTP · BETIM TRUCK PARTS*\n\n🔧 *${p.name}*\n`;
   if (p.vehicle) msg += `🚛 ${p.vehicle}\n`;
@@ -893,13 +1322,15 @@ function sharePartWhatsApp(id) {
 function statusTag(s) {
   if (s === 'Disponível') return '<span class="tag tag-go">Disponível</span>';
   if (s === 'Vendida') return '<span class="tag tag-sold">Vendida</span>';
+  if (s === 'Aguardando conferência') return '<span class="tag tag-blue">Aguardando conferência</span>';
   return '<span class="tag tag-hold">Reservada</span>';
 }
 function renderParts() {
   const q = (document.getElementById('partSearch').value||'').toLowerCase();
   const list = parts.filter(p =>
     p.name.toLowerCase().includes(q) || (p.code||'').toLowerCase().includes(q) ||
-    (p.vehicle||'').toLowerCase().includes(q) || (p.chassis||'').toLowerCase().includes(q)
+    (p.vehicle||'').toLowerCase().includes(q) || (p.chassis||'').toLowerCase().includes(q) ||
+    (p.category||'').toLowerCase().includes(q)
   ).sort((a,b)=>b.createdAt-a.createdAt);
   document.getElementById('partsCount').textContent = parts.length;
   const el = document.getElementById('partsList');
@@ -918,14 +1349,17 @@ function renderParts() {
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <h3>${p.name}</h3>${statusTag(p.status)}
         </div>
-        <div class="sub">${p.code?p.code+' · ':''}${p.cond}</div>
+        <div class="sub">${p.code?p.code+' · ':''}${p.category?p.category+' · ':''}${p.cond}</div>
         <div class="meta">
           ${p.vehicle?`<span>🚛 <b>${p.vehicle}</b></span>`:''}
           ${p.chassis?`<span>🔖 <b>${p.chassis}</b></span>`:''}
+          ${p.location?`<span>📍 <b>${p.location}</b></span>`:''}
+          <span>📦 <b>${p.qty!=null?p.qty:1}</b> un.</span>
         </div>
       </div>
       <div style="text-align:right">
         <div style="font-family:var(--font-display);font-size:22px;font-weight:700;color:var(--hazard)">${brl(p.price)}</div>
+        ${p.minPrice?`<div style="font-size:11px;color:var(--steel-400)">mín. ${brl(p.minPrice)}</div>`:''}
       </div>
     </div>
     <div class="meta" style="margin-top:12px">
@@ -1015,6 +1449,19 @@ async function saveSale() {
   saleItems.forEach(i => { const p = parts.find(x=>x.id===i.id); if (p) { p.status = 'Vendida'; afetadas.push(p); } });
   await syncSave('sales', sale);
   for (const p of afetadas) await syncSave('parts', p);
+  if (window._quoteParaVenda) {
+    const q = quotes.find(x=>x.id===window._quoteParaVenda);
+    if (q) {
+      q.status = 'Vendido'; q.saleId = sale.id;
+      await DB.set('quotes', quotes);
+      if (q.atendimentoId) {
+        await setEtapa(q.atendimentoId, 'Venda concluída');
+        const a = atendimentos.find(x=>x.id===q.atendimentoId);
+        if (a) { a.saleId = sale.id; await DB.set('atendimentos', atendimentos); }
+      }
+    }
+    window._quoteParaVenda = null;
+  }
   closeModal(); renderAll(); toast('Venda registrada · comissão ' + brl(sale.commission));
 }
 async function deleteSale(id) {
@@ -1095,6 +1542,32 @@ function renderPanel() {
     <div style="text-align:right"><div style="font-weight:700;font-size:18px">${brl(s.total)}</div>
     <div style="font-size:12px;color:var(--go)">+${brl(s.commission)}</div></div>
   </div></div>`).join('') : `<div class="empty" style="padding:30px"><p>Sem vendas ainda. Elas aparecem aqui.</p></div>`;
+
+  // ---- métricas do funil / atendimento ----
+  const hojeStr = new Date().toDateString();
+  const atendHoje = atendimentos.filter(a => new Date(a.createdAt).toDateString() === hojeStr);
+  const statAtendHojeEl = document.getElementById('statAtendHoje'); if (statAtendHojeEl) statAtendHojeEl.textContent = atendHoje.length;
+  const statOrcEnviadosEl = document.getElementById('statOrcEnviados'); if (statOrcEnviadosEl) statOrcEnviadosEl.textContent = quotes.length;
+  const statVendasFechadasEl = document.getElementById('statVendasFechadas'); if (statVendasFechadasEl) statVendasFechadasEl.textContent = sales.length;
+  const orcPerdidos = quotes.filter(q => q.status === 'Perdido');
+  const statOrcPerdidosEl = document.getElementById('statOrcPerdidos'); if (statOrcPerdidosEl) statOrcPerdidosEl.textContent = orcPerdidos.length;
+  const semResposta = atendimentos.filter(a => ['Novo atendimento','Cliente respondeu'].includes(a.status) && (Date.now()-(a.updatedAt||a.createdAt))>24*3600*1000);
+  const statSemRespostaEl = document.getElementById('statSemResposta'); if (statSemRespostaEl) statSemRespostaEl.textContent = semResposta.length;
+  const emNegociacao = quotes.filter(q => ['Enviado','Negociação'].includes(q.status)).reduce((s,q)=>s+q.total,0);
+  const statEmNegociacaoEl = document.getElementById('statEmNegociacao'); if (statEmNegociacaoEl) statEmNegociacaoEl.textContent = brlShort(emNegociacao);
+
+  const pecasCount = {};
+  atendimentos.forEach(a => { if (a.peca) pecasCount[a.peca] = (pecasCount[a.peca]||0)+1; });
+  const topPecas = Object.entries(pecasCount).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const pecasEl = document.getElementById('statPecasProcuradas');
+  if (pecasEl) pecasEl.innerHTML = topPecas.length
+    ? topPecas.map(([p,n])=>`<div class="meta" style="justify-content:space-between;margin-top:4px"><span>${p}</span><b>${n}x</b></div>`).join('')
+    : `<div class="sub" style="margin-top:4px">Sem dados ainda</div>`;
+
+  const vendedorCount = {};
+  atendimentos.forEach(a => { if (a.vendedor) vendedorCount[a.vendedor] = (vendedorCount[a.vendedor]||0)+1; });
+  const atendVendedorEl = document.getElementById('statAtendVendedor');
+  if (atendVendedorEl) atendVendedorEl.innerHTML = VENDEDORES.map(v=>`<div class="meta" style="justify-content:space-between;margin-top:4px"><span>${v}</span><b>${vendedorCount[v]||0}</b></div>`).join('');
 }
 function updateCommissionBadge() {
   const meu = sales.filter(s => s.vendedor === vendedorAtual).reduce((s,x)=>s+x.commission,0);
@@ -1114,47 +1587,188 @@ function refreshQuotePickers() {
 function addQuotePart(pid) {
   if (!pid) return;
   const p = parts.find(x=>x.id===pid);
-  quote.push({ id:p.id, name:p.name, price:p.price, vehicle:p.vehicle });
+  quote.push({ id:p.id, name:p.name, price:p.price, minPrice:p.minPrice||0, vehicle:p.vehicle });
   renderQuote();
 }
 function removeQuotePart(pid) { quote = quote.filter(q=>q.id!==pid); renderQuote(); }
-function clearQuote() { quote = []; renderQuote(); }
+function clearQuote() { quote = []; window._atendVinculado = null; renderQuote(); }
+function updateQuoteItemPrice(pid, val) {
+  const q = quote.find(x=>x.id===pid);
+  if (!q) return;
+  const novo = parseFloat(val) || 0;
+  if (q.minPrice && novo < q.minPrice) {
+    toast('Valor abaixo do mínimo permitido (' + brl(q.minPrice) + ')', true);
+    renderQuote();
+    return;
+  }
+  q.price = novo;
+  renderQuote();
+}
 function renderQuote() {
   const el = document.getElementById('quoteItems');
   el.innerHTML = quote.map(q=>`<div class="line-item">
-    <div class="li-info"><b>${q.name}</b><span>${q.vehicle||''}</span></div>
-    <div class="li-price">${brl(q.price)}</div>
+    <div class="li-info"><b>${q.name}</b><span>${q.vehicle||''}${q.minPrice?` · mínimo ${brl(q.minPrice)}`:''}</span></div>
+    <input type="number" step="0.01" value="${q.price}" style="width:90px;background:var(--steel-800);border:1px solid var(--steel-600);color:var(--paper);border-radius:6px;padding:6px" onchange="updateQuoteItemPrice('${q.id}', this.value)">
     <button class="btn btn-danger btn-sm" onclick="removeQuotePart('${q.id}')">✕</button>
   </div>`).join('');
-  const total = quote.reduce((s,q)=>s+q.price,0);
+  const subtotal = quote.reduce((s,q)=>s+q.price,0);
+  const frete = parseFloat(document.getElementById('quoteFrete')?.value) || 0;
+  const total = subtotal + frete;
+  const subEl = document.getElementById('quoteSubtotal'); if (subEl) subEl.textContent = brl(subtotal);
+  const freteEl = document.getElementById('quoteFreteShow'); if (freteEl) freteEl.textContent = brl(frete);
   document.getElementById('quoteTotal').textContent = brl(total);
   document.getElementById('quoteTotalBox').style.display = quote.length?'block':'none';
+  document.getElementById('quoteExtraFields').style.display = quote.length?'flex':'none';
   document.getElementById('quoteActions').style.display = quote.length?'flex':'none';
   refreshQuotePickers();
 }
+function dentroDoHorario() {
+  const d = new Date();
+  const dia = d.getDay(); // 0 dom .. 6 sáb
+  const h = d.getHours() + d.getMinutes()/60;
+  if (dia === 0 || dia === 6) return false;
+  if (dia === 5) return h >= 8 && h < 17; // sexta
+  return h >= 8 && h < 18; // seg a qui
+}
+function confirmarForaDoHorario() {
+  if (dentroDoHorario()) return true;
+  return confirm('Estamos fora do horário de atendimento (' + BTP.horario + '). Enviar mensagem mesmo assim?');
+}
 function sendQuoteWhatsApp() {
-  const total = quote.reduce((s,q)=>s+q.price,0);
+  if (!confirmarForaDoHorario()) return;
+  const subtotal = quote.reduce((s,q)=>s+q.price,0);
+  const frete = parseFloat(document.getElementById('quoteFrete')?.value) || 0;
+  const prazo = document.getElementById('quotePrazo')?.value.trim();
+  const total = subtotal + frete;
   const clientId = document.getElementById('quoteClient').value;
   const client = clientId ? clients.find(c=>c.id===clientId) : null;
   let msg = `*BTP · BETIM TRUCK PARTS*\n_Orçamento de peças_\n\n`;
   if (client) msg += `Cliente: ${client.name}\n\n`;
   quote.forEach(q => { msg += `• ${q.name}${q.vehicle?` (${q.vehicle})`:''}\n  ${brl(q.price)}\n`; });
-  msg += `\n*Total: ${brl(total)}*\n\n✅ Peças com procedência e rastreabilidade Detran\n\n💳 *PIX (${BTP.pixTipo}):* ${BTP.pixChave}\n📍 ${BTP.endereco}\n📱 ${BTP.whatsFmt}\n🕗 ${BTP.horario}\n\n_Orçamento válido por 3 dias._`;
+  if (frete) msg += `\nFrete: ${brl(frete)}`;
+  msg += `\n*Total: ${brl(total)}*\n`;
+  if (prazo) msg += `Prazo: ${prazo}\n`;
+  msg += `\n✅ Peças com procedência e rastreabilidade Detran\n\n💳 *PIX (${BTP.pixTipo}):* ${BTP.pixChave}\n📍 ${BTP.endereco}\n📱 ${BTP.whatsFmt}\n🕗 ${BTP.horario}\n\n_Orçamento válido por 3 dias. Posso reservar para você?_`;
   const phone = client && client.phone ? '55'+client.phone.replace(/\D/g,'') : '';
   window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+}
+async function salvarOrcamento() {
+  if (!quote.length) { toast('Adicione peças primeiro', true); return; }
+  const clientId = document.getElementById('quoteClient').value;
+  const client = clientId ? clients.find(c=>c.id===clientId) : null;
+  const frete = parseFloat(document.getElementById('quoteFrete')?.value) || 0;
+  const prazo = document.getElementById('quotePrazo')?.value.trim() || '';
+  const subtotal = quote.reduce((s,q)=>s+q.price,0);
+  const rec = {
+    id: uid(), createdAt: Date.now(),
+    clienteId: clientId || null,
+    clienteName: client ? client.name : 'Sem cliente',
+    atendimentoId: window._atendVinculado || null,
+    items: quote.map(q=>({...q})),
+    frete, prazo,
+    total: subtotal + frete,
+    status: 'Enviado',
+    vendedor: vendedorAtual,
+  };
+  quotes.push(rec);
+  await DB.set('quotes', quotes);
+  if (window._atendVinculado) {
+    await setEtapa(window._atendVinculado, 'Orçamento enviado');
+    const a = atendimentos.find(x=>x.id===window._atendVinculado);
+    if (a) { a.quoteId = rec.id; await DB.set('atendimentos', atendimentos); }
+  }
+  window._atendVinculado = null;
+  quote = [];
+  renderQuote(); renderQuotesList();
+  toast('Orçamento salvo no funil');
+}
+function renderQuotesList() {
+  const filterEl = document.getElementById('quoteStatusFilter');
+  const filtro = filterEl ? filterEl.value : '';
+  const el = document.getElementById('quotesSavedList');
+  if (!el) return;
+  const list = [...quotes].filter(q=>!filtro || q.status===filtro).sort((a,b)=>b.createdAt-a.createdAt);
+  if (!list.length) { el.innerHTML = `<div class="empty" style="padding:24px"><p>Nenhum orçamento salvo ainda.</p></div>`; return; }
+  const STATUSES = ['Enviado','Negociação','Aprovado','Perdido','Vendido'];
+  el.innerHTML = list.map(q => `<div class="card">
+    <div class="card-row">
+      <div style="flex:1">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <h3>${q.clienteName}</h3>
+          <span class="tag ${q.status==='Vendido'?'tag-go':q.status==='Perdido'?'tag-sold':'tag-orange'}">${q.status}</span>
+        </div>
+        <div class="sub">${fmtDate(q.createdAt)} · ${q.items.length} peça(s)${q.prazo?' · prazo '+q.prazo:''}</div>
+        <div class="meta">${q.items.map(i=>`<span>${i.name}</span>`).join('')}</div>
+      </div>
+      <div style="text-align:right"><div style="font-family:var(--font-display);font-size:20px;font-weight:700">${brl(q.total)}</div></div>
+    </div>
+    <div class="field" style="margin-top:10px;margin-bottom:0">
+      <select onchange="setQuoteStatus('${q.id}', this.value)">
+        ${STATUSES.map(s=>`<option ${q.status===s?'selected':''}>${s}</option>`).join('')}
+      </select>
+    </div>
+    <div class="meta" style="margin-top:10px">
+      ${q.status==='Vendido'?`<button class="btn btn-go btn-sm" onclick="venderDoOrcamento('${q.id}')">Registrar venda</button>`:''}
+      <button class="btn btn-danger btn-sm" onclick="excluirOrcamento('${q.id}')">Excluir</button>
+    </div>
+  </div>`).join('');
+}
+async function setQuoteStatus(id, status) {
+  const q = quotes.find(x=>x.id===id);
+  if (!q) return;
+  q.status = status;
+  await DB.set('quotes', quotes);
+  if (q.atendimentoId) {
+    if (status === 'Negociação') await setEtapa(q.atendimentoId, 'Negociação');
+    if (status === 'Perdido') await setEtapa(q.atendimentoId, 'Perdido');
+  }
+  renderQuotesList();
+  toast('Status: ' + status);
+}
+async function excluirOrcamento(id) {
+  if (!confirm('Excluir este orçamento?')) return;
+  quotes = quotes.filter(q=>q.id!==id);
+  await DB.set('quotes', quotes);
+  renderQuotesList(); toast('Orçamento excluído');
+}
+function venderDoOrcamento(id) {
+  const q = quotes.find(x=>x.id===id);
+  if (!q) return;
+  showView('vendas');
+  openSaleModal();
+  saleItems = q.items.map(i=>({id:i.id, name:i.name, price:i.price}));
+  const sel = document.getElementById('s_client');
+  if (sel && q.clienteId) sel.value = q.clienteId;
+  renderSaleItems();
+  window._quoteParaVenda = id;
 }
 
 // ============ MENSAGENS AUTOMÁTICAS ============
 const MESSAGES = [
   {
-    icon: '👋', title: 'Boas-vindas',
+    icon: '👋', title: 'Mensagem inicial',
     desc: 'Primeiro contato com o cliente',
-    build: (nome) => `Opa${nome?', '+nome:''}! Aqui é da *BTP · Betim Truck Parts* 🔧\n\nTrabalhamos com peças de caminhão com procedência e rastreabilidade Detran. Me conta qual peça você tá procurando que eu verifico no nosso pátio e já te passo o preço. 👍`
+    build: (nome) => `Olá${nome?', '+nome:''}, amigo caminhoneiro! Aqui é da Betim Truck Parts. Me envie o modelo do caminhão, ano e uma foto da peça que você precisa para verificarmos certinho no estoque.`
   },
   {
     icon: '✅', title: 'Peça separada / disponível',
     desc: 'Avisar que tem a peça em estoque',
     build: (nome) => `Boa notícia${nome?', '+nome:''}! ✅\n\nA peça que você procurava tá aqui no nosso pátio, com procedência. Já deixei separada pra você. Quer que eu te mande o valor e as fotos?`
+  },
+  {
+    icon: '🔄', title: 'Follow-up do orçamento',
+    desc: 'Cliente recebeu orçamento e não respondeu',
+    build: (nome) => `${nome?nome+', p':'P'}assando para saber se deu certo o orçamento da peça. Consigo verificar uma condição melhor para fechar hoje.`
+  },
+  {
+    icon: '💳', title: 'Forma de pagamento',
+    desc: 'Confirmar reserva e enviar opções de pagamento',
+    build: (nome) => `Para confirmar a reserva da peça, segue a forma de pagamento: PIX, boleto, cartão ou dinheiro.\n\n💳 *PIX (${BTP.pixTipo}):* ${BTP.pixChave}\n\nApós o pagamento, já seguimos com separação e envio.`
+  },
+  {
+    icon: '🚫', title: 'Peça indisponível',
+    desc: 'Não temos a peça agora, mas guarda o pedido',
+    build: (nome) => `${nome?nome+', n':'N'}o momento não temos essa peça disponível, mas posso deixar seu pedido salvo e te avisar assim que aparecer uma compatível.`
   },
   {
     icon: '📦', title: 'Pronta pra retirada',
@@ -1231,6 +1845,7 @@ function copyMsg(i) {
   });
 }
 function sendMsg(i) {
+  if (!confirmarForaDoHorario()) return;
   const text = currentMsgText(i);
   const sel = document.getElementById('msgClient');
   const client = sel && sel.value ? clients.find(c=>c.id===sel.value) : null;
@@ -1406,6 +2021,68 @@ function renderEmpresa() {
       </div>
       <span style="font-size:12px;color:var(--steel-500)">copiar</span>
     </div>`).join('') + `</div>`;
+  const statusEl = document.getElementById('openaiKeyStatus');
+  if (statusEl) statusEl.textContent = OPENAI.getKey() ? '✅ Chave salva neste aparelho' : 'Nenhuma chave configurada — usando só o modo automático simples';
+}
+function salvarOpenAIKey(v) {
+  v = v.trim();
+  if (v) localStorage.setItem('btp_openai_key', v);
+  else localStorage.removeItem('btp_openai_key');
+  renderEmpresa();
+  toast(v ? 'Chave da IA salva neste aparelho' : 'Chave da IA removida');
+}
+
+// ============ IA opcional (OpenAI) ============
+const OPENAI = {
+  getKey: () => localStorage.getItem('btp_openai_key') || '',
+  async chat(prompt) {
+    const key = this.getKey();
+    if (!key) return null;
+    try {
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: 'Você é um vendedor da Betim Truck Parts, empresa de peças de caminhão usadas e novas. Seja educado, comercial e direto. Nunca invente que uma peça existe em estoque.' },
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0.6,
+        })
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.choices?.[0]?.message?.content?.trim() || null;
+    } catch (e) {
+      console.warn('IA indisponível', e);
+      return null;
+    }
+  }
+};
+async function sugerirRespostaIA(atendId) {
+  const a = atendimentos.find(x=>x.id===atendId);
+  if (!a) return;
+  if (!OPENAI.getKey()) { toast('Configure sua chave da OpenAI em Empresa pra usar IA de verdade', true); return; }
+  toast('Pedindo sugestão pra IA...');
+  const contexto = `Cliente: ${a.nome}\nMensagem: ${a.mensagem||'(sem mensagem registrada)'}\nPeça pedida: ${a.peca||'não identificada'}\nMarca/modelo: ${a.marca||''} ${a.modelo||''} ${a.ano||''}\nEtapa atual: ${a.status}\nNotas: ${a.notas||''}`;
+  const resp = await OPENAI.chat(`Com base neste atendimento de WhatsApp, sugira uma resposta curta, comercial e persuasiva pra continuar a venda. Se faltar informação, peça-a educadamente.\n\n${contexto}`);
+  if (!resp) { toast('IA indisponível agora — usando modo automático simples', true); return; }
+  openModal(`
+    <h3>Sugestão da IA</h3>
+    <div class="msg-preview" style="max-height:none">${resp}</div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Fechar</button>
+      <button class="btn btn-primary" onclick="copyText(\`${resp.replace(/`/g,"'")}\`)">Copiar</button>
+      <button class="btn btn-wa" onclick="closeModal(); window._iaTextoParaEnviar='${resp.replace(/'/g,"\\'")}'; waAtendComTexto('${atendId}')">Enviar no WhatsApp</button>
+    </div>`);
+}
+function waAtendComTexto(id) {
+  if (!confirmarForaDoHorario()) return;
+  const a = atendimentos.find(x=>x.id===id);
+  const phone = (a.telefone||'').replace(/\D/g,'');
+  const texto = window._iaTextoParaEnviar || '';
+  window.open(`https://wa.me/${phone?'55'+phone:''}?text=${encodeURIComponent(texto)}`, '_blank');
 }
 
 function renderReport() {
