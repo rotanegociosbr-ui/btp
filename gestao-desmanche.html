@@ -557,6 +557,17 @@ function openClientModal(id) {
   const c = id ? clients.find(x => x.id === id) : {};
   openModal(`
     <h3>${id ? 'Editar' : 'Novo'} cliente</h3>
+    <div class="field">
+      <input type="file" accept="image/*" capture="environment" id="scanDocInput" style="display:none" onchange="scanDocument(this)">
+      <input type="file" accept="image/*,application/pdf" id="attachDocInput" style="display:none" onchange="scanDocument(this)">
+      <div style="display:flex;gap:8px">
+        <button type="button" class="btn btn-ghost" id="scanDocBtn" style="flex:1" onclick="document.getElementById('scanDocInput').click()">📷 Tirar foto</button>
+        <button type="button" class="btn btn-ghost" id="attachDocBtn" style="flex:1" onclick="document.getElementById('attachDocInput').click()">📎 Anexar PDF/foto</button>
+      </div>
+      <div style="font-size:11px;color:var(--steel-400);margin-top:4px">CPF/CNPJ, RG ou CNH — lemos os dados automaticamente</div>
+      <div id="scanDocStatus" style="font-size:12px;color:var(--steel-400);margin-top:6px"></div>
+      <div id="clientDocPreview" style="margin-top:8px"></div>
+    </div>
     <div class="field"><label>Nome / Razão social</label><input id="c_name" value="${c.name||''}"></div>
     <div class="field"><label>CPF / CNPJ</label><input id="c_doc" value="${c.doc||''}"></div>
     <div class="field"><label>WhatsApp / Telefone</label><input id="c_phone" value="${c.phone||''}" placeholder="(31) 90000-0000"></div>
@@ -566,10 +577,202 @@ function openClientModal(id) {
         ${['Mecânico/Oficina','Revenda','Consumidor final','Frota/Transportadora'].map(t=>`<option ${c.type===t?'selected':''}>${t}</option>`).join('')}
       </select>
     </div>
+    <div class="field"><label>CEP</label><input id="c_cep" value="${c.cep||''}" placeholder="00000-000" oninput="buscarCep()"></div>
+    <div id="cepStatus" style="font-size:12px;color:var(--steel-400);margin:-8px 0 12px"></div>
+    <div class="field"><label>Endereço</label><input id="c_street" value="${c.street||''}" placeholder="Rua, avenida..."></div>
+    <div class="field-row">
+      <div class="field"><label>Número</label><input id="c_number" value="${c.number||''}"></div>
+      <div class="field"><label>Complemento</label><input id="c_complement" value="${c.complement||''}" placeholder="Apto, sala..."></div>
+    </div>
+    <div class="field"><label>Bairro</label><input id="c_neighborhood" value="${c.neighborhood||''}"></div>
+    <div class="field-row">
+      <div class="field" style="flex:2"><label>Cidade</label><input id="c_city" value="${c.city||''}"></div>
+      <div class="field" style="flex:1"><label>UF</label>
+        <select id="c_state">
+          <option value="">--</option>
+          ${UF_LIST.map(uf=>`<option ${c.state===uf?'selected':''}>${uf}</option>`).join('')}
+        </select>
+      </div>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="saveClient('${id||''}')">Salvar</button>
     </div>`);
+  window._clientDoc = c.docPhoto || '';
+  renderClientDocPreview();
+}
+const UF_LIST = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
+async function buscarCep() {
+  const cepInput = document.getElementById('c_cep');
+  const cep = cepInput.value.replace(/\D/g, '');
+  if (cep.length !== 8) return;
+  const status = document.getElementById('cepStatus');
+  status.textContent = '🔍 Buscando endereço...';
+  try {
+    const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+    const data = await res.json();
+    if (data.erro) { status.textContent = '⚠️ CEP não encontrado.'; return; }
+    document.getElementById('c_street').value = data.logradouro || '';
+    document.getElementById('c_neighborhood').value = data.bairro || '';
+    document.getElementById('c_city').value = data.localidade || '';
+    document.getElementById('c_state').value = data.uf || '';
+    status.textContent = '✅ Endereço encontrado.';
+    document.getElementById('c_number').focus();
+  } catch (e) {
+    status.textContent = '⚠️ Não foi possível buscar o CEP agora. Preencha manualmente.';
+  }
+}
+function renderClientDocPreview() {
+  const el = document.getElementById('clientDocPreview');
+  if (!el) return;
+  el.innerHTML = window._clientDoc ? `
+    <div style="position:relative;display:inline-block">
+      <img src="${window._clientDoc}" style="width:90px;height:90px;object-fit:cover;border-radius:8px;border:1px solid var(--steel-600)">
+      <button type="button" onclick="removeClientDoc()" style="position:absolute;top:-6px;right:-6px;background:var(--stop);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:12px;cursor:pointer">✕</button>
+    </div>` : '';
+}
+function removeClientDoc() { window._clientDoc = ''; renderClientDocPreview(); }
+function compressImageSource(src, maxDim, quality) {
+  return new Promise((resolve, reject) => {
+    const fromDataUrl = (dataUrl) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > height && width > maxDim) { height = height * maxDim / width; width = maxDim; }
+        else if (height > maxDim) { width = width * maxDim / height; height = maxDim; }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = dataUrl;
+    };
+    if (typeof src === 'string') { fromDataUrl(src); return; }
+    if (src instanceof HTMLCanvasElement) { fromDataUrl(src.toDataURL('image/png')); return; }
+    const reader = new FileReader();
+    reader.onload = e => fromDataUrl(e.target.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(src);
+  });
+}
+let _pdfjsLib = null;
+async function ensurePdfJs() {
+  if (_pdfjsLib) return _pdfjsLib;
+  const lib = await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs');
+  lib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs';
+  _pdfjsLib = lib;
+  return lib;
+}
+async function pdfFirstPageToCanvas(file) {
+  const pdfjsLib = await ensurePdfJs();
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  const page = await pdf.getPage(1);
+  const viewport = page.getViewport({ scale: 2 });
+  const canvas = document.createElement('canvas');
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+  return canvas;
+}
+function viewClientDoc(id) {
+  const c = clients.find(x => x.id === id);
+  if (!c || !c.docPhoto) { toast('Sem documento anexado', true); return; }
+  openModal(`
+    <h3>Documento de ${c.name}</h3>
+    <img src="${c.docPhoto}" style="width:100%;border-radius:10px">
+    <div class="modal-actions" style="margin-top:16px">
+      <button class="btn btn-ghost" onclick="closeModal()">Fechar</button>
+    </div>`);
+}
+// ============ ESCANEAR DOCUMENTO (OCR) ============
+let _ocrWorker = null;
+async function ensureOcrWorker() {
+  if (_ocrWorker) return _ocrWorker;
+  if (!window.Tesseract) {
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+      s.onload = resolve; s.onerror = () => reject(new Error('Falha ao carregar leitor de documentos'));
+      document.head.appendChild(s);
+    });
+  }
+  _ocrWorker = await Tesseract.createWorker('por');
+  return _ocrWorker;
+}
+function formatCpf(d) { return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4'); }
+function formatCnpj(d) { return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5'); }
+function parseDocumentText(text) {
+  const result = {};
+  const cnpjMatch = text.match(/\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}/);
+  const cpfMatches = text.match(/\d{3}\.?\d{3}\.?\d{3}-?\d{2}/g) || [];
+  if (cnpjMatch && cnpjMatch[0].replace(/\D/g, '').length === 14) {
+    result.doc = formatCnpj(cnpjMatch[0].replace(/\D/g, ''));
+  } else {
+    const cpf = cpfMatches.map(m => m.replace(/\D/g, '')).find(d => d.length === 11);
+    if (cpf) result.doc = formatCpf(cpf);
+  }
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const looksLikeName = l => /^[A-ZÀ-Ú][A-ZÀ-Ú\s]+$/.test(l) && l.split(/\s+/).length >= 2;
+  let name = '';
+  for (let i = 0; i < lines.length; i++) {
+    if (/^nome\b/i.test(lines[i])) {
+      const sameLine = lines[i].replace(/^nome[:\s]*/i, '').trim();
+      if (looksLikeName(sameLine)) name = sameLine;
+      else if (lines[i + 1] && looksLikeName(lines[i + 1])) name = lines[i + 1];
+      break;
+    }
+  }
+  if (!name) {
+    const skip = /REPUBLICA|FEDERATIVA|BRASIL|MINISTERIO|SECRETARIA|CARTEIRA|IDENTIDADE|REGISTRO|NACIONAL|VALIDADE|NASCIMENTO|FILIACAO|NATURALIDADE|ASSINATURA|GOVERNO|TRANSITO|HABILITACAO|CATEGORIA/i;
+    const candidates = lines.filter(l => looksLikeName(l) && !skip.test(l));
+    if (candidates.length) name = candidates.sort((a, b) => b.length - a.length)[0];
+  }
+  if (name) result.name = name.replace(/\s+/g, ' ').trim();
+  return result;
+}
+function scanDocument(input) {
+  const file = input.files && input.files[0];
+  input.value = '';
+  if (file) processDocumentFile(file);
+}
+async function processDocumentFile(file) {
+  const btn1 = document.getElementById('scanDocBtn');
+  const btn2 = document.getElementById('attachDocBtn');
+  const status = document.getElementById('scanDocStatus');
+  if (btn1) btn1.disabled = true;
+  if (btn2) btn2.disabled = true;
+  const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '');
+  status.textContent = isPdf ? '📄 Convertendo PDF...' : '🔍 Lendo documento...';
+  try {
+    let ocrSource = file;
+    if (isPdf) {
+      const canvas = await pdfFirstPageToCanvas(file);
+      ocrSource = canvas;
+      window._clientDoc = await compressImageSource(canvas, 1100, 0.8);
+    } else {
+      window._clientDoc = await compressImageSource(file, 900, 0.75);
+    }
+    renderClientDocPreview();
+    status.textContent = '🔍 Lendo documento...';
+    const worker = await ensureOcrWorker();
+    const { data } = await worker.recognize(ocrSource);
+    const parsed = parseDocumentText(data.text || '');
+    if (parsed.name) document.getElementById('c_name').value = parsed.name;
+    if (parsed.doc) document.getElementById('c_doc').value = parsed.doc;
+    status.textContent = (parsed.name || parsed.doc)
+      ? '✅ Dados lidos e documento anexado — confira antes de salvar.'
+      : '📎 Documento anexado, mas não consegui ler os dados. Preencha manualmente.';
+  } catch (e) {
+    console.warn('Falha ao processar documento', e);
+    status.textContent = window._clientDoc
+      ? '📎 Documento anexado, mas não consegui ler os dados. Preencha manualmente.'
+      : '⚠️ Não foi possível processar esse arquivo. Preencha manualmente.';
+  } finally {
+    if (btn1) btn1.disabled = false;
+    if (btn2) btn2.disabled = false;
+  }
 }
 async function saveClient(id) {
   const name = document.getElementById('c_name').value.trim();
@@ -580,6 +783,14 @@ async function saveClient(id) {
     phone: document.getElementById('c_phone').value.trim(),
     email: document.getElementById('c_email').value.trim(),
     type: document.getElementById('c_type').value,
+    docPhoto: window._clientDoc || '',
+    cep: document.getElementById('c_cep').value.trim(),
+    street: document.getElementById('c_street').value.trim(),
+    number: document.getElementById('c_number').value.trim(),
+    complement: document.getElementById('c_complement').value.trim(),
+    neighborhood: document.getElementById('c_neighborhood').value.trim(),
+    city: document.getElementById('c_city').value.trim(),
+    state: document.getElementById('c_state').value,
   };
   if (id) { Object.assign(clients.find(c=>c.id===id), data); }
   else { clients.push({ id: uid(), ...data, createdAt: Date.now() }); }
@@ -617,6 +828,7 @@ function renderClients() {
           <div class="meta">
             ${c.phone?`<span>📱 <b>${c.phone}</b></span>`:''}
             ${c.email?`<span>✉️ <b>${c.email}</b></span>`:''}
+            ${(c.city||c.state)?`<span>📍 <b>${[c.city,c.state].filter(Boolean).join('/')}</b></span>`:''}
             <span>🧾 <b>${cs.length}</b> compras</span>
             <span>💰 <b>${brl(spent)}</b></span>
           </div>
@@ -624,6 +836,7 @@ function renderClients() {
       </div>
       <div class="meta" style="margin-top:12px">
         ${c.phone?`<button class="btn btn-wa btn-sm" onclick="waClient('${c.id}')">WhatsApp</button>`:''}
+        ${c.docPhoto?`<button class="btn btn-ghost btn-sm" onclick="viewClientDoc('${c.id}')">📎 Documento</button>`:''}
         <button class="btn btn-ghost btn-sm" onclick="openClientModal('${c.id}')">Editar</button>
         <button class="btn btn-danger btn-sm" onclick="deleteClient('${c.id}')">Excluir</button>
       </div>
