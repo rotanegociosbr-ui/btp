@@ -326,8 +326,9 @@
     <h1>BTP</h1>
     <p>Betim Truck Parts</p>
   </div>
-  <div class="commission-badge" onclick="showView('vendas')">
-    <div class="label">Comissão acum.</div>
+  <div class="commission-badge" id="userSwitch" onclick="openUserSwitch()" style="font-size:12px;color:var(--steel-300)">👤 Quem é você?</div>
+  <div class="commission-badge" onclick="showView('vendas')" style="margin-left:0">
+    <div class="label">Sua comissão acum.</div>
     <div class="value" id="commissionTotal">R$ 0</div>
     <div id="cloudStatus" style="font-size:9px;letter-spacing:.5px;margin-top:2px;color:var(--steel-400)">⏳</div>
   </div>
@@ -352,7 +353,7 @@
       <div class="stat"><div class="label">Peças no pátio</div><div class="num" id="statParts">0</div></div>
       <div class="stat accent"><div class="label">Valor em estoque</div><div class="num" id="statStock">R$ 0</div></div>
       <div class="stat go"><div class="label">Vendas no mês</div><div class="num" id="statSales">R$ 0</div></div>
-      <div class="stat go"><div class="label">Comissão no mês</div><div class="num" id="statCommission">R$ 0</div></div>
+      <div class="stat go"><div class="label">Comissão no mês</div><div class="num" id="statCommission" style="font-size:16px;line-height:1.6">R$ 0</div></div>
     </div>
     <div class="view-head"><h2 style="font-size:18px">Últimas vendas</h2></div>
     <div id="recentSales"></div>
@@ -378,7 +379,7 @@
     </div>
     <div class="stat-grid">
       <div class="stat"><div class="label">Total vendido</div><div class="num" id="statTotalSold">R$ 0</div></div>
-      <div class="stat go"><div class="label">Comissão total (2%)</div><div class="num" id="statTotalComm">R$ 0</div></div>
+      <div class="stat go"><div class="label">Comissão por vendedor (2%)</div><div class="num" id="statTotalComm" style="font-size:16px;line-height:1.6">R$ 0</div></div>
       <div class="stat"><div class="label">A receber (pendente)</div><div class="num" id="statAReceber" style="color:var(--stop)">R$ 0</div></div>
     </div>
     <div id="salesList"></div>
@@ -541,6 +542,8 @@ const BTP = {
   horario: 'Seg a Qui 8h–18h · Sex 8h–17h'
 };
 const COMMISSION_RATE = 0.02;
+const VENDEDORES = ['Rodney', 'Luiz'];
+let vendedorAtual = localStorage.getItem('btp_vendedor_atual') || '';
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const brl = n => 'R$ ' + (n||0).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 const brlShort = n => {
@@ -549,6 +552,7 @@ const brlShort = n => {
 };
 
 async function loadAll() {
+  ensureVendedorAtual();
   // primeiro carrega o que tem local (rápido, funciona offline)
   clients = await DB.get('clients', []);
   parts = await DB.get('parts', []);
@@ -620,6 +624,51 @@ function showView(v) {
   if (v === 'relatorio') renderReport();
 }
 
+// ============ Vendedor (comissões separadas) ============
+function ensureVendedorAtual() {
+  if (!VENDEDORES.includes(vendedorAtual)) openUserSwitch(true);
+  else renderUserSwitch();
+}
+function renderUserSwitch() {
+  const el = document.getElementById('userSwitch');
+  if (el) el.textContent = '👤 ' + (vendedorAtual || 'Quem é você?');
+}
+function openUserSwitch(forced) {
+  openModal(`
+    <h3>Quem está usando o app agora?</h3>
+    <div class="hint">Isso define de quem são os clientes cadastrados neste aparelho e de quem é a comissão das vendas.</div>
+    <div class="modal-actions" style="flex-direction:column;gap:10px">
+      ${VENDEDORES.map(v => `<button class="btn ${v===vendedorAtual?'btn-primary':'btn-ghost'}" style="width:100%;justify-content:center" onclick="setVendedorAtual('${v}')">${v}</button>`).join('')}
+    </div>
+    ${forced ? '' : '<div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">Cancelar</button></div>'}
+  `);
+}
+function setVendedorAtual(v) {
+  vendedorAtual = v;
+  localStorage.setItem('btp_vendedor_atual', v);
+  renderUserSwitch();
+  closeModal();
+  toast('Você é: ' + v);
+}
+function commissionByVendedor(list) {
+  const totals = {};
+  VENDEDORES.forEach(v => totals[v] = 0);
+  let semAtribuicao = 0;
+  list.forEach(s => {
+    if (s.vendedor && totals.hasOwnProperty(s.vendedor)) totals[s.vendedor] += s.commission;
+    else semAtribuicao += s.commission;
+  });
+  totals['Sem atribuição'] = semAtribuicao;
+  return totals;
+}
+function vendedorBreakdownHtml(totals) {
+  let html = VENDEDORES.map(v=>`${v} <span style="font-size:14px">${brlShort(totals[v])}</span>`).join('<br>');
+  if (totals['Sem atribuição'] > 0) {
+    html += `<br><span style="color:var(--steel-400)">Sem vendedor <span style="font-size:14px">${brlShort(totals['Sem atribuição'])}</span></span>`;
+  }
+  return html;
+}
+
 // ============ Toast ============
 function toast(msg, err) {
   const t = document.getElementById('toast');
@@ -651,6 +700,11 @@ function openClientModal(id) {
         ${['Mecânico/Oficina','Revenda','Consumidor final','Frota/Transportadora'].map(t=>`<option ${c.type===t?'selected':''}>${t}</option>`).join('')}
       </select>
     </div>
+    <div class="field"><label>Vendedor (dono da comissão)</label>
+      <select id="c_vendedor">
+        ${VENDEDORES.map(v=>`<option ${(c.vendedor||vendedorAtual)===v?'selected':''}>${v}</option>`).join('')}
+      </select>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="saveClient('${id||''}')">Salvar</button>
@@ -665,6 +719,7 @@ async function saveClient(id) {
     phone: document.getElementById('c_phone').value.trim(),
     email: document.getElementById('c_email').value.trim(),
     type: document.getElementById('c_type').value,
+    vendedor: document.getElementById('c_vendedor').value,
   };
   let saved;
   if (id) { saved = clients.find(c=>c.id===id); Object.assign(saved, data); }
@@ -698,7 +753,10 @@ function renderClients() {
     return `<div class="card">
       <div class="card-row">
         <div style="flex:1">
-          <h3>${c.name}</h3>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <h3>${c.name}</h3>
+            ${c.vendedor?`<span class="tag">👤 ${c.vendedor}</span>`:''}
+          </div>
           <div class="sub">${c.type}${c.doc?' · '+c.doc:''}</div>
           <div class="meta">
             ${c.phone?`<span>📱 <b>${c.phone}</b></span>`:''}
@@ -938,11 +996,13 @@ function renderSaleItems() {
 async function saveSale() {
   if (!saleItems.length) { toast('Adicione ao menos uma peça', true); return; }
   const clientId = document.getElementById('s_client').value;
+  const client = clientId ? clients.find(c=>c.id===clientId) : null;
   const total = saleItems.reduce((s,i)=>s+i.price,0);
   const sale = {
     id: uid(),
     clientId,
-    clientName: clientId ? clients.find(c=>c.id===clientId).name : 'Sem cliente',
+    clientName: client ? client.name : 'Sem cliente',
+    vendedor: (client && client.vendedor) || vendedorAtual,
     items: saleItems.map(i=>({...i})),
     total,
     commission: total * COMMISSION_RATE,
@@ -981,9 +1041,9 @@ function renderSales() {
   const list = [...sales].sort((a,b)=>b.date-a.date);
   document.getElementById('salesCount').textContent = sales.length;
   const totalSold = sales.reduce((s,x)=>s+x.total,0);
-  const totalComm = sales.reduce((s,x)=>s+x.commission,0);
   document.getElementById('statTotalSold').textContent = brlShort(totalSold);
-  document.getElementById('statTotalComm').textContent = brlShort(totalComm);
+  const porVendedor = commissionByVendedor(sales);
+  document.getElementById('statTotalComm').innerHTML = vendedorBreakdownHtml(porVendedor);
   const aReceber = sales.filter(s=>!s.paid).reduce((s,x)=>s+x.total,0);
   const arEl = document.getElementById('statAReceber');
   if (arEl) arEl.textContent = brlShort(aReceber);
@@ -998,6 +1058,7 @@ function renderSales() {
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <h3>${s.clientName}</h3>
           ${s.paid ? '<span class="tag tag-go">Pago</span>' : '<span class="tag tag-hold">Pendente</span>'}
+          ${s.vendedor?`<span class="tag">👤 ${s.vendedor}</span>`:''}
         </div>
         <div class="sub">${fmtDate(s.date)} · ${s.items.length} peça(s)</div>
         <div class="meta">${s.items.map(i=>`<span>${i.name}</span>`).join('')}</div>
@@ -1025,18 +1086,19 @@ function renderPanel() {
   document.getElementById('statStock').textContent = brlShort(avail.reduce((s,p)=>s+p.price,0));
   const monthSales = sales.filter(s=>isThisMonth(s.date));
   document.getElementById('statSales').textContent = brlShort(monthSales.reduce((s,x)=>s+x.total,0));
-  document.getElementById('statCommission').textContent = brlShort(monthSales.reduce((s,x)=>s+x.commission,0));
+  const porVendedorMes = commissionByVendedor(monthSales);
+  document.getElementById('statCommission').innerHTML = vendedorBreakdownHtml(porVendedorMes);
   const recent = [...sales].sort((a,b)=>b.date-a.date).slice(0,3);
   const el = document.getElementById('recentSales');
   el.innerHTML = recent.length ? recent.map(s=>`<div class="card"><div class="card-row">
-    <div style="flex:1"><h3>${s.clientName}</h3><div class="sub">${fmtDate(s.date)}</div></div>
+    <div style="flex:1"><h3>${s.clientName}</h3><div class="sub">${fmtDate(s.date)}${s.vendedor?' · 👤 '+s.vendedor:''}</div></div>
     <div style="text-align:right"><div style="font-weight:700;font-size:18px">${brl(s.total)}</div>
     <div style="font-size:12px;color:var(--go)">+${brl(s.commission)}</div></div>
   </div></div>`).join('') : `<div class="empty" style="padding:30px"><p>Sem vendas ainda. Elas aparecem aqui.</p></div>`;
 }
 function updateCommissionBadge() {
-  const total = sales.reduce((s,x)=>s+x.commission,0);
-  document.getElementById('commissionTotal').textContent = brlShort(total);
+  const meu = sales.filter(s => s.vendedor === vendedorAtual).reduce((s,x)=>s+x.commission,0);
+  document.getElementById('commissionTotal').textContent = brlShort(meu);
 }
 
 // ============ ORÇAMENTO ============
@@ -1367,7 +1429,7 @@ function renderReport() {
   const doMes = sales.filter(s => { const d=new Date(s.date); return d.getFullYear()===selY && d.getMonth()===selM; });
 
   const totalVendido = doMes.reduce((a,s)=>a+s.total,0);
-  const totalComissao = doMes.reduce((a,s)=>a+s.commission,0);
+  const porVendedor = commissionByVendedor(doMes);
   const recebido = doMes.filter(s=>s.paid).reduce((a,s)=>a+s.total,0);
   const aReceber = doMes.filter(s=>!s.paid).reduce((a,s)=>a+s.total,0);
   const nVendas = doMes.length;
@@ -1390,7 +1452,7 @@ function renderReport() {
   el.innerHTML = `
     <div class="stat-grid">
       <div class="stat"><div class="label">Vendido no mês</div><div class="num">${brlShort(totalVendido)}</div></div>
-      <div class="stat go"><div class="label">Sua comissão (2%)</div><div class="num">${brlShort(totalComissao)}</div></div>
+      <div class="stat go"><div class="label">Comissão por vendedor (2%)</div><div class="num" style="font-size:16px;line-height:1.6">${vendedorBreakdownHtml(porVendedor)}</div></div>
       <div class="stat"><div class="label">Já recebido</div><div class="num" style="color:var(--go)">${brlShort(recebido)}</div></div>
       <div class="stat"><div class="label">A receber</div><div class="num" style="color:var(--stop)">${brlShort(aReceber)}</div></div>
     </div>
@@ -1410,12 +1472,12 @@ function shareReportWhatsApp(key) {
   const nomesMes = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   const doMes = sales.filter(s => { const d=new Date(s.date); return d.getFullYear()===selY && d.getMonth()===selM; });
   const totalVendido = doMes.reduce((a,s)=>a+s.total,0);
-  const totalComissao = doMes.reduce((a,s)=>a+s.commission,0);
+  const porVendedor = commissionByVendedor(doMes);
   const aReceber = doMes.filter(s=>!s.paid).reduce((a,s)=>a+s.total,0);
   let msg = `*BTP · Resumo ${nomesMes[selM]}/${selY}*\n\n`;
   msg += `🧾 Vendas: ${doMes.length}\n`;
   msg += `💰 Total vendido: ${brl(totalVendido)}\n`;
-  msg += `📈 Comissão (2%): ${brl(totalComissao)}\n`;
+  VENDEDORES.forEach(v => { msg += `📈 Comissão ${v} (2%): ${brl(porVendedor[v])}\n`; });
   msg += `⏳ A receber: ${brl(aReceber)}`;
   window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
 }
