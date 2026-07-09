@@ -518,6 +518,9 @@
     <div class="view-head"><h2>Empresa</h2></div>
     <div class="hint">Dados da BTP usados nos orçamentos e mensagens. Toque em qualquer item pra copiar.</div>
     <div class="card" onclick="copyText('${''}')" id="empresaCard"></div>
+    <div class="view-head" style="margin-top:20px"><h2 style="font-size:18px">Catálogo pra parceiros</h2></div>
+    <div class="hint">Mande esse link pros mecânicos e revendas parceiras. Eles veem só as peças <b>disponíveis</b> no estoque (sem preço, sem dados de clientes/vendas) e já saem daqui direto pro seu WhatsApp com o pedido certo.</div>
+    <div class="card" style="cursor:pointer" onclick="copyText(catalogoUrl())" id="catalogoLinkCard"></div>
     <div class="view-head" style="margin-top:20px"><h2 style="font-size:18px">IA (opcional)</h2></div>
     <div class="hint">Cole aqui sua própria chave da OpenAI pra ativar sugestão de resposta, resumo de atendimento e classificação de urgência com IA de verdade. A chave fica <b>só neste aparelho</b> (nunca é enviada pra nuvem ou compartilhada). Sem chave, o app continua funcionando com a interpretação automática simples.</div>
     <div class="field"><label>Chave da OpenAI (sk-...)</label><input id="openaiKeyInput" type="password" placeholder="sk-..." onchange="salvarOpenAIKey(this.value)"></div>
@@ -2023,6 +2026,17 @@ function renderEmpresa() {
     </div>`).join('') + `</div>`;
   const statusEl = document.getElementById('openaiKeyStatus');
   if (statusEl) statusEl.textContent = OPENAI.getKey() ? '✅ Chave salva neste aparelho' : 'Nenhuma chave configurada — usando só o modo automático simples';
+  const catalogoEl = document.getElementById('catalogoLinkCard');
+  if (catalogoEl) catalogoEl.innerHTML = `
+    <div style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--steel-400)">Link do catálogo</div>
+    <div style="font-weight:600;font-size:14px;word-break:break-all;margin:4px 0 10px">${catalogoUrl()}</div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();copyText(catalogoUrl())">Copiar link</button>
+      <a class="btn btn-primary btn-sm" style="text-decoration:none" href="catalogo.html" target="_blank" onclick="event.stopPropagation()">Abrir catálogo</a>
+    </div>`;
+}
+function catalogoUrl() {
+  return location.href.replace(/index\.html.*$/, '').replace(/\/$/, '') + '/catalogo.html';
 }
 function salvarOpenAIKey(v) {
   v = v.trim();
