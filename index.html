@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BTP — Betim Truck Parts</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#0d1b2e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BTP">
 <style>
   :root {
     --steel-900: #0f1114;
@@ -352,6 +359,17 @@
     max-width: 100%; border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,.5);
   }
 
+  /* ---------- Etiqueta QR (impressão) ---------- */
+  .label-print { background: #fff; color: #0f1114; padding: 22px; border-radius: 10px; text-align: center; }
+  .label-print img { width: 170px; height: 170px; image-rendering: pixelated; }
+  .label-print .lp-name { font-weight: 700; font-size: 16px; margin-top: 8px; }
+  .label-print .lp-code { font-size: 12px; color: #555; margin-top: 2px; }
+  .label-print .lp-price { font-size: 19px; font-weight: 700; margin-top: 8px; }
+  @media print {
+    body * { visibility: hidden; }
+    #labelPrintArea, #labelPrintArea * { visibility: visible; }
+    #labelPrintArea { position: fixed; top: 40px; left: 50%; transform: translateX(-50%); }
+  }
 </style>
 </head>
 <body>
@@ -389,6 +407,7 @@
     <div class="view-head"><h2>Meu Dia</h2></div>
     <div class="hint">O que precisa da sua atenção agora — clientes esperando resposta, pagamentos em aberto e orçamentos parados. Tudo filtrado pra você.</div>
     <div id="meuDiaResumo"></div>
+    <div id="resumoSemanalCard"></div>
     <div id="meuDiaConteudo"></div>
   </section>
 
@@ -611,7 +630,7 @@ let clients = [], parts = [], sales = [], quote = [], atendimentos = [], quotes 
 const CLOUD = {
   url: 'https://nrmslkplpsevuqsygvpd.supabase.co',
   key: 'sb_publishable_lNboVhFv_MLZ7b9WRtLgbA_MlI_W_tY',
-  online: false,
+  online: {}, // reachability por tabela — uma tabela ausente/indisponível não derruba as outras
   async _req(method, path, body) {
     const res = await fetch(this.url + '/rest/v1/' + path, {
       method,
@@ -640,7 +659,7 @@ const CLOUD = {
     await this._req('DELETE', table + '?id=eq.' + encodeURIComponent(id));
   }
 };
-const TABLE = { clients: 'clients', parts: 'parts', sales: 'sales' };
+const TABLE = { clients: 'clients', parts: 'parts', sales: 'sales', atendimentos: 'atendimentos', quotes: 'quotes' };
 
 const BTP = {
   nome: 'BTP · Betim Truck Parts',
@@ -663,51 +682,53 @@ const brlShort = n => {
   return 'R$ ' + (n||0).toLocaleString('pt-BR',{maximumFractionDigits:0});
 };
 
+function refreshCloudStatusFromTables() {
+  const anyOnline = Object.values(CLOUD.online).some(Boolean);
+  updateCloudStatus(anyOnline ? 'online' : 'offline');
+}
 async function loadAll() {
   ensureVendedorAtual();
   // primeiro carrega o que tem local (rápido, funciona offline)
   clients = await DB.get('clients', []);
   parts = await DB.get('parts', []);
   sales = await DB.get('sales', []);
-  // atendimentos e orçamentos ainda são só locais (não há tabela no Supabase pra eles ainda)
   atendimentos = await DB.get('atendimentos', []);
   quotes = await DB.get('quotes', []);
   renderAll();
   updateCloudStatus('sync');
-  // depois tenta buscar da nuvem
-  try {
-    const [c, p, s] = await Promise.all([
-      CLOUD.pull(TABLE.clients),
-      CLOUD.pull(TABLE.parts),
-      CLOUD.pull(TABLE.sales)
-    ]);
-    clients = c; parts = p; sales = s;
-    CLOUD.online = true;
-    // atualiza o cache local com o que veio da nuvem
-    await DB.set('clients', clients);
-    await DB.set('parts', parts);
-    await DB.set('sales', sales);
-    renderAll();
-    updateCloudStatus('online');
-  } catch (e) {
-    CLOUD.online = false;
-    updateCloudStatus('offline');
-    console.warn('Nuvem indisponível, usando dados locais', e);
+  // depois tenta buscar cada tabela da nuvem — uma tabela indisponível (ex: ainda não criada no Supabase) não derruba as outras
+  const tables = ['clients', 'parts', 'sales', 'atendimentos', 'quotes'];
+  const data = { clients, parts, sales, atendimentos, quotes };
+  const results = await Promise.allSettled(tables.map(t => CLOUD.pull(TABLE[t])));
+  for (let i = 0; i < tables.length; i++) {
+    const t = tables[i], r = results[i];
+    if (r.status === 'fulfilled') {
+      data[t] = r.value;
+      CLOUD.online[t] = true;
+      await DB.set(t, data[t]);
+    } else {
+      CLOUD.online[t] = false;
+      console.warn(`Tabela "${t}" indisponível na nuvem, usando dados locais`, r.reason);
+    }
   }
+  clients = data.clients; parts = data.parts; sales = data.sales;
+  atendimentos = data.atendimentos; quotes = data.quotes;
+  renderAll();
+  refreshCloudStatusFromTables();
 }
 // sincroniza um item (salva local + nuvem)
 async function syncSave(table, item) {
-  await DB.set(table, {clients, parts, sales}[table]);
-  if (CLOUD.online) {
+  await DB.set(table, {clients, parts, sales, atendimentos, quotes}[table]);
+  if (CLOUD.online[table]) {
     try { await CLOUD.push(TABLE[table], item); }
-    catch(e){ updateCloudStatus('offline'); CLOUD.online=false; }
+    catch(e){ CLOUD.online[table] = false; refreshCloudStatusFromTables(); }
   }
 }
 async function syncDelete(table, id) {
-  await DB.set(table, {clients, parts, sales}[table]);
-  if (CLOUD.online) {
+  await DB.set(table, {clients, parts, sales, atendimentos, quotes}[table]);
+  if (CLOUD.online[table]) {
     try { await CLOUD.remove(TABLE[table], id); }
-    catch(e){ updateCloudStatus('offline'); CLOUD.online=false; }
+    catch(e){ CLOUD.online[table] = false; refreshCloudStatusFromTables(); }
   }
 }
 function updateCloudStatus(state) {
@@ -1346,13 +1367,13 @@ async function saveAtend(id) {
     saved = { id: uid(), ...data, status: novoStatus, createdAt: Date.now(), history: [{status:novoStatus, at:Date.now()}] };
     atendimentos.push(saved);
   }
-  await DB.set('atendimentos', atendimentos);
+  await syncSave('atendimentos', saved);
   closeModal(); renderAtendimentos(); renderPanel(); toast('Atendimento salvo');
 }
 async function deleteAtend(id) {
   if (!confirm('Excluir este atendimento?')) return;
   atendimentos = atendimentos.filter(a=>a.id!==id);
-  await DB.set('atendimentos', atendimentos);
+  await syncDelete('atendimentos', id);
   renderAtendimentos(); renderPanel(); toast('Atendimento excluído');
 }
 async function setEtapa(id, status) {
@@ -1360,7 +1381,7 @@ async function setEtapa(id, status) {
   if (!a || a.status === status) return;
   a.status = status; a.updatedAt = Date.now();
   a.history.push({status, at:Date.now()});
-  await DB.set('atendimentos', atendimentos);
+  await syncSave('atendimentos', a);
   renderAtendimentos(); renderPanel();
   toast('Etapa: ' + status);
 }
@@ -1633,11 +1654,61 @@ function renderParts() {
     </div>
     <div class="meta" style="margin-top:12px">
       ${nFotos?`<button class="btn btn-ghost btn-sm" onclick="openGallery('${p.id}')">📷 Ver fotos</button>`:''}
+      <button class="btn btn-ghost btn-sm" onclick="openPartLabel('${p.id}')">🏷️ Etiqueta</button>
       <button class="btn btn-ghost btn-sm" onclick="openPartModal('${p.id}')">Editar</button>
       <button class="btn btn-danger btn-sm" onclick="deletePart('${p.id}')">Excluir</button>
     </div>
   </div>`;
   }).join('');
+}
+
+// ============ ETIQUETA QR DA PEÇA ============
+let _qrLib = null;
+async function ensureQrLib() {
+  if (_qrLib) return _qrLib;
+  if (!window.qrcode) {
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js';
+      s.onload = resolve; s.onerror = () => reject(new Error('Falha ao carregar gerador de QR code'));
+      document.head.appendChild(s);
+    });
+  }
+  _qrLib = window.qrcode;
+  return _qrLib;
+}
+function partWaLink(p) {
+  const msg = `Olá! Tenho interesse nesta peça: *${p.name}*${p.code?` (código ${p.code})`:''}. Ainda está disponível?`;
+  return `https://wa.me/55${BTP.whats}?text=${encodeURIComponent(msg)}`;
+}
+async function openPartLabel(id) {
+  const p = parts.find(x=>x.id===id);
+  if (!p) return;
+  openModal(`
+    <h3>Etiqueta da peça</h3>
+    <div id="labelPrintArea" class="label-print">
+      <div id="labelQrHolder">⏳ Gerando QR code...</div>
+      <div class="lp-name">${p.name}</div>
+      ${p.code?`<div class="lp-code">Código: ${p.code}</div>`:''}
+      <div class="lp-price">${brl(p.price)}</div>
+    </div>
+    <div class="hint" style="margin-top:14px">Cole essa etiqueta na peça no pátio. Quem escanear o QR abre o WhatsApp já perguntando sobre ela.</div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Fechar</button>
+      <button class="btn btn-primary" onclick="window.print()">🖨️ Imprimir</button>
+    </div>`);
+  try {
+    const qrLib = await ensureQrLib();
+    const qr = qrLib(0, 'M');
+    qr.addData(partWaLink(p));
+    qr.make();
+    const holder = document.getElementById('labelQrHolder');
+    if (holder) holder.innerHTML = qr.createImgTag(6, 4);
+  } catch (e) {
+    console.warn('Falha ao gerar QR code', e);
+    const holder = document.getElementById('labelQrHolder');
+    if (holder) holder.innerHTML = '⚠️ Não consegui gerar o QR agora.';
+  }
 }
 
 // ============ VENDAS ============
@@ -1722,11 +1793,11 @@ async function saveSale() {
     const q = quotes.find(x=>x.id===window._quoteParaVenda);
     if (q) {
       q.status = 'Vendido'; q.saleId = sale.id;
-      await DB.set('quotes', quotes);
+      await syncSave('quotes', q);
       if (q.atendimentoId) {
         await setEtapa(q.atendimentoId, 'Venda concluída');
         const a = atendimentos.find(x=>x.id===q.atendimentoId);
-        if (a) { a.saleId = sale.id; await DB.set('atendimentos', atendimentos); }
+        if (a) { a.saleId = sale.id; await syncSave('atendimentos', a); }
       }
     }
     window._quoteParaVenda = null;
@@ -1846,10 +1917,70 @@ function updateCommissionBadge() {
 // ============ MEU DIA ============
 function diasDesde(ts) { return Math.floor((Date.now()-ts)/86400000); }
 function horasDesde(ts) { return Math.floor((Date.now()-ts)/3600000); }
+function weekRange(d) {
+  d = d || new Date();
+  const day = d.getDay(); // 0=domingo, 1=segunda...
+  const diffToMonday = (day === 0 ? -6 : 1 - day);
+  const start = new Date(d);
+  start.setHours(0,0,0,0);
+  start.setDate(d.getDate() + diffToMonday);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  end.setHours(23,59,59,999);
+  return { start, end };
+}
+function vendasDaSemana() {
+  const { start, end } = weekRange();
+  return sales.filter(s => s.vendedor === vendedorAtual && s.date >= start.getTime() && s.date <= end.getTime());
+}
+function renderResumoSemanal() {
+  const el = document.getElementById('resumoSemanalCard');
+  if (!el) return;
+  const daSemana = vendasDaSemana();
+  if (!daSemana.length) {
+    el.innerHTML = `<div class="view-head" style="margin-top:10px"><h2 style="font-size:16px">📅 Sua semana</h2></div>
+      <div class="card"><div class="sub">Nenhuma venda sua ainda essa semana. Bora virar esse jogo! 💪</div></div>`;
+    return;
+  }
+  const total = daSemana.reduce((a,s)=>a+s.total,0);
+  const comissao = total * COMMISSION_RATE;
+  const nPecas = daSemana.reduce((a,s)=>a+s.items.length,0);
+  el.innerHTML = `
+    <div class="view-head" style="margin-top:10px"><h2 style="font-size:16px">📅 Sua semana</h2></div>
+    <div class="card">
+      <div class="stat-grid">
+        <div class="stat"><div class="label">Vendido</div><div class="num">${brlShort(total)}</div></div>
+        <div class="stat go"><div class="label">Sua comissão</div><div class="num" style="color:var(--go)">${brl(comissao)}</div></div>
+      </div>
+      <div class="meta" style="margin-top:10px;justify-content:space-between">
+        <span>🧾 <b>${daSemana.length}</b> venda(s)</span>
+        <span>⚙️ <b>${nPecas}</b> peça(s)</span>
+      </div>
+      <button class="btn btn-wa" style="width:100%;justify-content:center;margin-top:12px" onclick="enviarResumoSemanal()">Enviar resumo da semana</button>
+    </div>`;
+}
+function enviarResumoSemanal() {
+  const { start, end } = weekRange();
+  const daSemana = vendasDaSemana();
+  const total = daSemana.reduce((a,s)=>a+s.total,0);
+  const comissao = total * COMMISSION_RATE;
+  const aReceber = daSemana.filter(s=>!s.paid).reduce((a,s)=>a+s.total,0);
+  const nPecas = daSemana.reduce((a,s)=>a+s.items.length,0);
+  const fmt = d => d.toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'});
+  let msg = `*BTP · Resumo da semana (${fmt(start)} a ${fmt(end)})*\n`;
+  msg += `👤 ${vendedorAtual}\n\n`;
+  msg += `🧾 Vendas: ${daSemana.length}\n`;
+  msg += `⚙️ Peças vendidas: ${nPecas}\n`;
+  msg += `💰 Total vendido: ${brl(total)}\n`;
+  msg += `📈 Comissão (2%): ${brl(comissao)}`;
+  if (aReceber) msg += `\n⏳ A receber: ${brl(aReceber)}`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+}
 function renderMeuDia() {
   const el = document.getElementById('meuDiaConteudo');
   const resumoEl = document.getElementById('meuDiaResumo');
   if (!el) return;
+  renderResumoSemanal();
 
   const semResposta = atendimentos
     .filter(a => a.vendedor === vendedorAtual && ['Novo atendimento','Cliente respondeu'].includes(a.status) && (Date.now()-(a.updatedAt||a.createdAt))>24*3600*1000)
@@ -1950,9 +2081,10 @@ function followUpOrcamento(id) {
   if (!q) return;
   const client = q.clienteId ? clients.find(c=>c.id===q.clienteId) : null;
   const phone = client && client.phone ? '55'+client.phone.replace(/\D/g,'') : '';
+  if (!phone) { toast('Cliente sem telefone cadastrado', true); return; }
   const msg = MESSAGES.find(m => m.title === 'Follow-up do orçamento');
   const firstName = client ? client.name.split(' ')[0] : '';
-  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg.build(firstName))}`, '_blank');
+  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg.build(firstName, q))}`, '_blank');
 }
 
 // ============ ORÇAMENTO ============
@@ -2052,11 +2184,11 @@ async function salvarOrcamento() {
     vendedor: vendedorAtual,
   };
   quotes.push(rec);
-  await DB.set('quotes', quotes);
+  await syncSave('quotes', rec);
   if (window._atendVinculado) {
     await setEtapa(window._atendVinculado, 'Orçamento enviado');
     const a = atendimentos.find(x=>x.id===window._atendVinculado);
-    if (a) { a.quoteId = rec.id; await DB.set('atendimentos', atendimentos); }
+    if (a) { a.quoteId = rec.id; await syncSave('atendimentos', a); }
   }
   window._atendVinculado = null;
   quote = [];
@@ -2098,7 +2230,7 @@ async function setQuoteStatus(id, status) {
   const q = quotes.find(x=>x.id===id);
   if (!q) return;
   q.status = status;
-  await DB.set('quotes', quotes);
+  await syncSave('quotes', q);
   if (q.atendimentoId) {
     if (status === 'Negociação') await setEtapa(q.atendimentoId, 'Negociação');
     if (status === 'Perdido') await setEtapa(q.atendimentoId, 'Perdido');
@@ -2109,7 +2241,7 @@ async function setQuoteStatus(id, status) {
 async function excluirOrcamento(id) {
   if (!confirm('Excluir este orçamento?')) return;
   quotes = quotes.filter(q=>q.id!==id);
-  await DB.set('quotes', quotes);
+  await syncDelete('quotes', id);
   renderQuotesList(); toast('Orçamento excluído');
 }
 function venderDoOrcamento(id) {
@@ -2139,7 +2271,11 @@ const MESSAGES = [
   {
     icon: '🔄', title: 'Follow-up do orçamento',
     desc: 'Cliente recebeu orçamento e não respondeu',
-    build: (nome) => `${nome?nome+', p':'P'}assando para saber se deu certo o orçamento da peça. Consigo verificar uma condição melhor para fechar hoje.`
+    build: (nome, q) => {
+      const itens = q ? q.items.map(i=>i.name).join(', ') : 'peça';
+      const valor = q ? ` no valor de ${brl(q.total)}` : '';
+      return `${nome?nome+', p':'P'}assando para saber se deu certo o orçamento de ${itens}${valor}. Consigo verificar uma condição melhor pra fechar hoje.`;
+    }
   },
   {
     icon: '💳', title: 'Forma de pagamento',
@@ -2552,6 +2688,12 @@ function shareReportWhatsApp(key) {
 }
 
 loadAll();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch((e) => console.warn('Service worker falhou', e));
+  });
+}
 </script>
 </body>
 </html>
