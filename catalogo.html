@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Catálogo de Peças — BTP Betim Truck Parts</title>
+<style>
+  :root {
+    --steel-900: #0f1114;
+    --steel-800: #16181c;
+    --steel-700: #1e2126;
+    --steel-600: #2a2e35;
+    --steel-500: #4a5058;
+    --steel-400: #7d8590;
+    --steel-300: #b0b8c1;
+    --paper: #f5f7fa;
+    --deep-blue: #0d1b2e;
+    --orange: #ff8a1e;
+    --yellow: #ffc93c;
+    --go: #46c46a;
+    --font-display: 'Arial Narrow', 'Helvetica Neue', sans-serif;
+    --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body { font-family: var(--font-body); background: var(--steel-900); color: var(--paper); font-size: 15px; line-height: 1.4; }
+  header {
+    background: linear-gradient(180deg, var(--steel-800), var(--deep-blue));
+    border-bottom: 1px solid var(--steel-600); padding: 16px 18px;
+    display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 50;
+  }
+  .logo-mark { height: 40px; width: auto; max-width: 180px; object-fit: contain; }
+  header .title { font-family: var(--font-display); font-weight: 700; font-size: 15px; letter-spacing: 1px; text-transform: uppercase; }
+  header .sub { font-size: 11px; color: var(--steel-400); }
+  main { padding: 18px; max-width: 900px; margin: 0 auto; padding-bottom: 60px; }
+  .hint {
+    font-size: 12.5px; color: var(--steel-300); background: var(--steel-800);
+    border-left: 3px solid var(--orange); padding: 12px 14px; border-radius: 0 8px 8px 0; margin-bottom: 16px;
+  }
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--steel-400); margin-bottom: 6px; font-weight: 600; }
+  .field input, .field select {
+    width: 100%; padding: 12px 14px; background: var(--steel-800); border: 1px solid var(--steel-600);
+    border-radius: 10px; color: var(--paper); font-size: 15px; font-family: var(--font-body);
+  }
+  .field input:focus, .field select:focus { outline: 2px solid var(--orange); border-color: transparent; }
+  .field-row { display: flex; gap: 10px; }
+  .field-row .field { flex: 1; }
+  .count { font-size: 12px; color: var(--steel-400); margin-bottom: 14px; }
+  .card { background: var(--steel-800); border: 1px solid var(--steel-700); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+  .card-row { display: flex; align-items: flex-start; gap: 12px; }
+  .card h3 { font-size: 16px; font-weight: 700; }
+  .card .sub { font-size: 13px; color: var(--steel-400); margin-top: 2px; }
+  .card .meta { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; font-size: 12px; color: var(--steel-300); }
+  .card .meta b { color: var(--paper); font-weight: 600; }
+  .part-photo {
+    width: 60px; height: 60px; border-radius: 8px; flex-shrink: 0; background: var(--steel-700);
+    display: flex; align-items: center; justify-content: center; font-size: 24px; overflow: hidden; position: relative;
+  }
+  .part-photo img { width: 100%; height: 100%; object-fit: cover; }
+  .tag { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; padding: 3px 8px; border-radius: 5px; background: rgba(70,196,106,.18); color: var(--go); }
+  .btn {
+    font-family: var(--font-body); font-weight: 600; font-size: 14px; border: none; border-radius: 8px;
+    padding: 11px 18px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px;
+    transition: transform .1s, filter .15s; width: 100%; justify-content: center; margin-top: 12px;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn-wa { background: #25D366; color: white; }
+  .empty { text-align: center; padding: 60px 20px; color: var(--steel-500); }
+  .empty .icon { font-size: 44px; margin-bottom: 12px; opacity: .5; }
+  .empty h3 { color: var(--steel-300); font-size: 17px; margin-bottom: 6px; }
+  .empty p { font-size: 14px; max-width: 320px; margin: 0 auto; }
+  .gallery-modal {
+    position: fixed; inset: 0; background: rgba(0,0,0,.85); display: none; align-items: center; justify-content: center;
+    z-index: 100; padding: 20px;
+  }
+  .gallery-modal.open { display: flex; }
+  .gallery-modal img { max-width: 100%; max-height: 80vh; border-radius: 10px; }
+</style>
+</head>
+<body>
+<header>
+  <img class="logo-mark" src="data:image/png;base64,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" alt="BTP">
+  <div>
+    <div class="title">Catálogo de Peças · BTP</div>
+    <div class="sub">Betim Truck Parts — pra parceiros e revendas</div>
+  </div>
+</header>
+<main>
+  <div class="hint">Catálogo de consulta, direto do nosso estoque. Preços e condições de parceria são combinados por WhatsApp — encontrou a peça? Toque em <b>Pedir no WhatsApp</b> que a mensagem já sai pronta com o nome da peça.</div>
+  <div class="field-row">
+    <div class="field"><label>Seu nome / oficina (opcional)</label><input id="parceiroNome" placeholder="Ex: Oficina do Zé"></div>
+  </div>
+  <div class="field"><label>Buscar peça, veículo ou categoria</label><input id="busca" placeholder="Ex: diferencial, Volvo FH, farol..." oninput="renderCatalogo()"></div>
+  <div class="field"><label>Categoria</label><select id="categoriaFiltro" onchange="renderCatalogo()"><option value="">— Todas —</option></select></div>
+  <div class="count" id="contagem"></div>
+  <div id="lista"></div>
+</main>
+<div class="gallery-modal" id="galleryModal" onclick="fecharGaleria()"><img id="galleryImg" src=""></div>
+
+<script>
+const CLOUD_URL = 'https://nrmslkplpsevuqsygvpd.supabase.co';
+const CLOUD_KEY = 'sb_publishable_lNboVhFv_MLZ7b9WRtLgbA_MlI_W_tY';
+const BTP_WHATS = '31994883431';
+let parts = [];
+
+async function carregarPecas() {
+  const el = document.getElementById('lista');
+  el.innerHTML = `<div class="empty"><div class="icon">⏳</div><h3>Carregando estoque...</h3></div>`;
+  try {
+    const res = await fetch(CLOUD_URL + '/rest/v1/parts?select=id,data', {
+      headers: { 'apikey': CLOUD_KEY, 'Authorization': 'Bearer ' + CLOUD_KEY }
+    });
+    if (!res.ok) throw new Error('status ' + res.status);
+    const rows = await res.json();
+    parts = rows.map(r => ({ id: r.id, ...r.data })).filter(p => p.status === 'Disponível');
+    montarFiltroCategorias();
+    renderCatalogo();
+  } catch (e) {
+    el.innerHTML = `<div class="empty"><div class="icon">📴</div><h3>Catálogo indisponível agora</h3><p>Não conseguimos falar com o estoque da BTP neste momento. Chame direto no WhatsApp (31) 99488-3431.</p></div>`;
+    console.warn('Falha ao carregar catálogo', e);
+  }
+}
+function montarFiltroCategorias() {
+  const cats = [...new Set(parts.map(p=>p.category).filter(Boolean))].sort();
+  const sel = document.getElementById('categoriaFiltro');
+  sel.innerHTML = `<option value="">— Todas —</option>` + cats.map(c=>`<option>${c}</option>`).join('');
+}
+const brl = n => 'R$ ' + (n||0).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+function renderCatalogo() {
+  const q = (document.getElementById('busca').value||'').toLowerCase();
+  const cat = document.getElementById('categoriaFiltro').value;
+  const list = parts.filter(p =>
+    (!cat || p.category === cat) &&
+    (p.name.toLowerCase().includes(q) || (p.vehicle||'').toLowerCase().includes(q) || (p.category||'').toLowerCase().includes(q))
+  ).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  document.getElementById('contagem').textContent = list.length + ' peça(s) disponível(is)';
+  const el = document.getElementById('lista');
+  if (!list.length) {
+    el.innerHTML = `<div class="empty"><div class="icon">🔍</div><h3>Nada encontrado</h3><p>Não achou a peça? Pede direto no WhatsApp que a gente confere no estoque.</p><button class="btn btn-wa" onclick="pedirGenerico()">📲 Falar no WhatsApp</button></div>`;
+    return;
+  }
+  el.innerHTML = list.map(p => {
+    const fotos = (p.photos && p.photos.length) ? p.photos : (p.photo?[p.photo]:[]);
+    return `<div class="card">
+      <div class="card-row">
+        <div class="part-photo" ${fotos.length?`onclick="abrirGaleria('${fotos[0].replace(/'/g,"\\'")}')" style="cursor:pointer"`:''}>${fotos[0]?`<img src="${fotos[0]}">`:'⚙️'}</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <h3>${p.name}</h3><span class="tag">Disponível</span>
+          </div>
+          <div class="sub">${p.category?p.category+' · ':''}${p.cond||''}</div>
+          <div class="meta">
+            ${p.vehicle?`<span>🚛 <b>${p.vehicle}</b></span>`:''}
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-wa" onclick="pedirPeca('${p.id}')">📲 Pedir no WhatsApp</button>
+    </div>`;
+  }).join('');
+}
+function abrirGaleria(src) {
+  document.getElementById('galleryImg').src = src;
+  document.getElementById('galleryModal').classList.add('open');
+}
+function fecharGaleria() { document.getElementById('galleryModal').classList.remove('open'); }
+function pedirPeca(id) {
+  const p = parts.find(x=>x.id===id);
+  const nome = document.getElementById('parceiroNome').value.trim();
+  let msg = nome ? `Olá! Aqui é ${nome}, parceiro da BTP. ` : `Olá! Sou parceiro da BTP. `;
+  msg += `Vi no catálogo que vocês têm: *${p.name}*${p.vehicle?` (${p.vehicle})`:''}. Pode confirmar condição, valor e prazo pra mim?`;
+  window.open(`https://wa.me/55${BTP_WHATS}?text=${encodeURIComponent(msg)}`, '_blank');
+}
+function pedirGenerico() {
+  const q = document.getElementById('busca').value.trim();
+  const nome = document.getElementById('parceiroNome').value.trim();
+  let msg = nome ? `Olá! Aqui é ${nome}, parceiro da BTP. ` : `Olá! Sou parceiro da BTP. `;
+  msg += q ? `Estou procurando: ${q}. Vocês têm disponível?` : `Gostaria de consultar a disponibilidade de uma peça.`;
+  window.open(`https://wa.me/55${BTP_WHATS}?text=${encodeURIComponent(msg)}`, '_blank');
+}
+carregarPecas();
+</script>
+</body>
+</html>
