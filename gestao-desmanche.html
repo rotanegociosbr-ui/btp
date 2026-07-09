@@ -676,6 +676,22 @@ function renderPhotoPreview() {
     </div>`).join('');
 }
 function removePhoto(i) { window._photos.splice(i,1); renderPhotoPreview(); }
+function stampWatermark(canvas, logoImg) {
+  if (!logoImg) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const margin = Math.max(8, W * 0.035);
+  const lw = Math.max(40, W * 0.26);
+  const lh = lw * (logoImg.height / logoImg.width);
+  const x = W - lw - margin, y = H - lh - margin;
+  const padX = lw * 0.14, padY = lh * 0.14;
+  ctx.save();
+  ctx.fillStyle = 'rgba(15,17,20,.55)';
+  roundRect(ctx, x - padX, y - padY, lw + padX*2, lh + padY*2, Math.min(lw,lh)*0.18);
+  ctx.fill();
+  ctx.drawImage(logoImg, x, y, lw, lh);
+  ctx.restore();
+}
 function previewPhoto(input) {
   const files = Array.from(input.files||[]);
   if (!files.length) return;
@@ -690,8 +706,11 @@ function previewPhoto(input) {
         else if (height > max) { width = width*max/height; height = max; }
         canvas.width = width; canvas.height = height;
         canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-        window._photos.push(canvas.toDataURL('image/jpeg', 0.7));
-        renderPhotoPreview();
+        loadQuoteLogo((logo) => {
+          stampWatermark(canvas, logo);
+          window._photos.push(canvas.toDataURL('image/jpeg', 0.7));
+          renderPhotoPreview();
+        });
       };
       img.src = e.target.result;
     };

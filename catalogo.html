@@ -75,7 +75,24 @@
     z-index: 100; padding: 20px;
   }
   .gallery-modal.open { display: flex; }
-  .gallery-modal img { max-width: 100%; max-height: 80vh; border-radius: 10px; }
+  .wm-frame { position: relative; display: inline-block; max-width: 100%; }
+  .wm-frame img.shot { max-width: 100%; max-height: 80vh; border-radius: 10px; display: block; }
+  .wm-badge {
+    position: absolute; right: 14px; bottom: 14px;
+    background: rgba(15,17,20,.55); padding: 6px 10px; border-radius: 8px;
+    display: flex; align-items: center; overflow: hidden;
+  }
+  .wm-badge img { height: 22px; width: auto; display: block; position: relative; z-index: 1; }
+  .wm-badge::after {
+    content: ''; position: absolute; top: 0; left: -60%; width: 40%; height: 100%;
+    background: linear-gradient(115deg, transparent, rgba(255,255,255,.55), transparent);
+    transform: skewX(-20deg);
+    animation: wmShine 3.2s ease-in-out infinite;
+  }
+  @keyframes wmShine {
+    0%, 40% { left: -60%; }
+    60%, 100% { left: 130%; }
+  }
 </style>
 </head>
 <body>
@@ -96,7 +113,12 @@
   <div class="count" id="contagem"></div>
   <div id="lista"></div>
 </main>
-<div class="gallery-modal" id="galleryModal" onclick="fecharGaleria()"><img id="galleryImg" src=""></div>
+<div class="gallery-modal" id="galleryModal" onclick="fecharGaleria()">
+  <div class="wm-frame">
+    <img id="galleryImg" class="shot" src="">
+    <div class="wm-badge"><img id="wmLogo" src=""></div>
+  </div>
+</div>
 
 <script>
 const CLOUD_URL = 'https://nrmslkplpsevuqsygvpd.supabase.co';
@@ -161,6 +183,7 @@ function renderCatalogo() {
 }
 function abrirGaleria(src) {
   document.getElementById('galleryImg').src = src;
+  document.getElementById('wmLogo').src = document.querySelector('.logo-mark').src;
   document.getElementById('galleryModal').classList.add('open');
 }
 function fecharGaleria() { document.getElementById('galleryModal').classList.remove('open'); }
