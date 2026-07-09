@@ -561,6 +561,7 @@ function openClientModal(id) {
       <input type="file" accept="image/*" capture="environment" id="scanDocInput" style="display:none" onchange="scanDocument(this)">
       <button type="button" class="btn btn-ghost" id="scanDocBtn" style="width:100%" onclick="document.getElementById('scanDocInput').click()">📷 Ler CPF/CNPJ, RG ou CNH pela foto</button>
       <div id="scanDocStatus" style="font-size:12px;color:var(--steel-400);margin-top:6px"></div>
+      <div id="clientDocPreview" style="margin-top:8px"></div>
     </div>
     <div class="field"><label>Nome / Razão social</label><input id="c_name" value="${c.name||''}"></div>
     <div class="field"><label>CPF / CNPJ</label><input id="c_doc" value="${c.doc||''}"></div>
@@ -574,6 +575,49 @@ function openClientModal(id) {
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="saveClient('${id||''}')">Salvar</button>
+    </div>`);
+  window._clientDoc = c.docPhoto || '';
+  renderClientDocPreview();
+}
+function renderClientDocPreview() {
+  const el = document.getElementById('clientDocPreview');
+  if (!el) return;
+  el.innerHTML = window._clientDoc ? `
+    <div style="position:relative;display:inline-block">
+      <img src="${window._clientDoc}" style="width:90px;height:90px;object-fit:cover;border-radius:8px;border:1px solid var(--steel-600)">
+      <button type="button" onclick="removeClientDoc()" style="position:absolute;top:-6px;right:-6px;background:var(--stop);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:12px;cursor:pointer">✕</button>
+    </div>` : '';
+}
+function removeClientDoc() { window._clientDoc = ''; renderClientDocPreview(); }
+function compressImageFile(file, maxDim, quality) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > height && width > maxDim) { height = height * maxDim / width; width = maxDim; }
+        else if (height > maxDim) { width = width * maxDim / height; height = maxDim; }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+function viewClientDoc(id) {
+  const c = clients.find(x => x.id === id);
+  if (!c || !c.docPhoto) { toast('Sem documento anexado', true); return; }
+  openModal(`
+    <h3>Documento de ${c.name}</h3>
+    <img src="${c.docPhoto}" style="width:100%;border-radius:10px">
+    <div class="modal-actions" style="margin-top:16px">
+      <button class="btn btn-ghost" onclick="closeModal()">Fechar</button>
     </div>`);
 }
 // ============ ESCANEAR DOCUMENTO (OCR) ============
@@ -630,17 +674,21 @@ async function scanDocument(input) {
   btn.disabled = true;
   status.textContent = '🔍 Lendo documento...';
   try {
+    window._clientDoc = await compressImageFile(file, 900, 0.75);
+    renderClientDocPreview();
     const worker = await ensureOcrWorker();
     const { data } = await worker.recognize(file);
     const parsed = parseDocumentText(data.text || '');
     if (parsed.name) document.getElementById('c_name').value = parsed.name;
     if (parsed.doc) document.getElementById('c_doc').value = parsed.doc;
     status.textContent = (parsed.name || parsed.doc)
-      ? '✅ Dados lidos — confira antes de salvar.'
-      : '⚠️ Não consegui ler os dados dessa foto. Preencha manualmente.';
+      ? '✅ Dados lidos e documento anexado — confira antes de salvar.'
+      : '📎 Documento anexado, mas não consegui ler os dados. Preencha manualmente.';
   } catch (e) {
     console.warn('OCR falhou', e);
-    status.textContent = '⚠️ Não foi possível ler o documento. Preencha manualmente.';
+    status.textContent = window._clientDoc
+      ? '📎 Documento anexado, mas não consegui ler os dados. Preencha manualmente.'
+      : '⚠️ Não foi possível ler o documento. Preencha manualmente.';
   } finally {
     btn.disabled = false;
     input.value = '';
@@ -655,6 +703,7 @@ async function saveClient(id) {
     phone: document.getElementById('c_phone').value.trim(),
     email: document.getElementById('c_email').value.trim(),
     type: document.getElementById('c_type').value,
+    docPhoto: window._clientDoc || '',
   };
   if (id) { Object.assign(clients.find(c=>c.id===id), data); }
   else { clients.push({ id: uid(), ...data, createdAt: Date.now() }); }
@@ -699,6 +748,7 @@ function renderClients() {
       </div>
       <div class="meta" style="margin-top:12px">
         ${c.phone?`<button class="btn btn-wa btn-sm" onclick="waClient('${c.id}')">WhatsApp</button>`:''}
+        ${c.docPhoto?`<button class="btn btn-ghost btn-sm" onclick="viewClientDoc('${c.id}')">📎 Documento</button>`:''}
         <button class="btn btn-ghost btn-sm" onclick="openClientModal('${c.id}')">Editar</button>
         <button class="btn btn-danger btn-sm" onclick="deleteClient('${c.id}')">Excluir</button>
       </div>
