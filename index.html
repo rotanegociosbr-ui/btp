@@ -392,6 +392,7 @@
   <button class="tab" data-view="painel" onclick="showView('painel')" data-role-tab="painel">Painel</button>
   <button class="tab" data-view="atendimentos" onclick="showView('atendimentos')" data-role-tab="atendimentos">Atendimentos</button>
   <button class="tab" data-view="pecas" onclick="showView('pecas')" data-role-tab="pecas">Peças</button>
+  <button class="tab" data-view="referencia" onclick="showView('referencia')" data-role-tab="referencia">Referência</button>
   <button class="tab" data-view="vendas" onclick="showView('vendas')" data-role-tab="vendas">Vendas</button>
   <button class="tab" data-view="clientes" onclick="showView('clientes')" data-role-tab="clientes">Clientes</button>
   <button class="tab" data-view="orcamento" onclick="showView('orcamento')" data-role-tab="orcamento">Orçamento</button>
@@ -468,6 +469,18 @@
     </div>
     <input class="search" id="partSearch" placeholder="Buscar por nome, código, veículo ou chassi..." oninput="renderParts()">
     <div id="partsList"></div>
+  </section>
+
+  <!-- REFERÊNCIA -->
+  <section class="view" id="view-referencia">
+    <div class="view-head">
+      <h2>Referência</h2>
+      <span class="count" id="refPartsCount">0</span>
+      <button class="btn btn-primary push-right" onclick="openRefModal()">+ Nova referência</button>
+    </div>
+    <div class="hint">Banco de peças identificadas pra consulta rápida: nome correto, código original (TecDoc, catálogo oficial...), marcas/modelos que servem e foto/desenho de aplicação. Alimenta com o que você for confirmando.</div>
+    <input class="search" id="refPartSearch" placeholder="Buscar por código original ou nome..." oninput="renderRefParts()">
+    <div id="refPartsList"></div>
   </section>
 
   <!-- VENDAS -->
@@ -624,7 +637,7 @@ const DB = {
   }
 };
 
-let clients = [], parts = [], sales = [], quote = [], atendimentos = [], quotes = [];
+let clients = [], parts = [], sales = [], quote = [], atendimentos = [], quotes = [], refParts = [];
 
 // ====== SINCRONIZAÇÃO NA NUVEM (Supabase) ======
 const CLOUD = {
@@ -659,7 +672,7 @@ const CLOUD = {
     await this._req('DELETE', table + '?id=eq.' + encodeURIComponent(id));
   }
 };
-const TABLE = { clients: 'clients', parts: 'parts', sales: 'sales', atendimentos: 'atendimentos', quotes: 'quotes' };
+const TABLE = { clients: 'clients', parts: 'parts', sales: 'sales', atendimentos: 'atendimentos', quotes: 'quotes', refParts: 'ref_parts' };
 
 const BTP = {
   nome: 'BTP · Betim Truck Parts',
@@ -694,11 +707,12 @@ async function loadAll() {
   sales = await DB.get('sales', []);
   atendimentos = await DB.get('atendimentos', []);
   quotes = await DB.get('quotes', []);
+  refParts = await DB.get('refParts', []);
   renderAll();
   updateCloudStatus('sync');
   // depois tenta buscar cada tabela da nuvem — uma tabela indisponível (ex: ainda não criada no Supabase) não derruba as outras
-  const tables = ['clients', 'parts', 'sales', 'atendimentos', 'quotes'];
-  const data = { clients, parts, sales, atendimentos, quotes };
+  const tables = ['clients', 'parts', 'sales', 'atendimentos', 'quotes', 'refParts'];
+  const data = { clients, parts, sales, atendimentos, quotes, refParts };
   const results = await Promise.allSettled(tables.map(t => CLOUD.pull(TABLE[t])));
   for (let i = 0; i < tables.length; i++) {
     const t = tables[i], r = results[i];
@@ -712,20 +726,20 @@ async function loadAll() {
     }
   }
   clients = data.clients; parts = data.parts; sales = data.sales;
-  atendimentos = data.atendimentos; quotes = data.quotes;
+  atendimentos = data.atendimentos; quotes = data.quotes; refParts = data.refParts;
   renderAll();
   refreshCloudStatusFromTables();
 }
 // sincroniza um item (salva local + nuvem)
 async function syncSave(table, item) {
-  await DB.set(table, {clients, parts, sales, atendimentos, quotes}[table]);
+  await DB.set(table, {clients, parts, sales, atendimentos, quotes, refParts}[table]);
   if (CLOUD.online[table]) {
     try { await CLOUD.push(TABLE[table], item); }
     catch(e){ CLOUD.online[table] = false; refreshCloudStatusFromTables(); }
   }
 }
 async function syncDelete(table, id) {
-  await DB.set(table, {clients, parts, sales, atendimentos, quotes}[table]);
+  await DB.set(table, {clients, parts, sales, atendimentos, quotes, refParts}[table]);
   if (CLOUD.online[table]) {
     try { await CLOUD.remove(TABLE[table], id); }
     catch(e){ CLOUD.online[table] = false; refreshCloudStatusFromTables(); }
@@ -746,6 +760,7 @@ function renderAll() {
   renderPanel(); renderParts(); renderSales(); renderClients();
   refreshQuotePickers(); updateCommissionBadge(); renderMessages();
   renderAtendimentos(); renderQuotesList(); applyRoleVisibility(); renderMeuDia();
+  renderRefParts();
 }
 
 // ============ Navegação ============
@@ -766,9 +781,9 @@ function showView(v) {
 const PAPEIS = ['Administrador','Vendedor','Estoque','Financeiro'];
 let papelAtual = localStorage.getItem('btp_papel_atual') || 'Administrador';
 const ROLE_TABS = {
-  'Administrador': ['meudia','painel','atendimentos','pecas','vendas','clientes','orcamento','mensagens','empresa','relatorio'],
-  'Vendedor': ['meudia','painel','atendimentos','pecas','vendas','clientes','orcamento','mensagens'],
-  'Estoque': ['painel','atendimentos','pecas'],
+  'Administrador': ['meudia','painel','atendimentos','pecas','referencia','vendas','clientes','orcamento','mensagens','empresa','relatorio'],
+  'Vendedor': ['meudia','painel','atendimentos','pecas','referencia','vendas','clientes','orcamento','mensagens'],
+  'Estoque': ['painel','atendimentos','pecas','referencia'],
   'Financeiro': ['meudia','painel','vendas','clientes','relatorio'],
 };
 function applyRoleVisibility() {
@@ -1709,6 +1724,106 @@ async function openPartLabel(id) {
     const holder = document.getElementById('labelQrHolder');
     if (holder) holder.innerHTML = '⚠️ Não consegui gerar o QR agora.';
   }
+}
+
+// ============ BANCO DE PEÇAS DE REFERÊNCIA ============
+function openRefModal(id) {
+  const r = id ? refParts.find(x => x.id === id) : {};
+  openModal(`
+    <h3>${id ? 'Editar' : 'Nova'} peça de referência</h3>
+    <div class="field"><label>Nome correto da peça</label><input id="r_name" value="${r.name||''}" placeholder="Ex: Sensor de rotação ABS"></div>
+    <div class="field"><label>Código original (OEM)</label><input id="r_code" value="${r.code||''}" placeholder="Ex: 20545953"></div>
+    <div class="field"><label>Marcas / modelos que servem</label><input id="r_brands" value="${r.brands||''}" placeholder="Ex: Volvo FH 2010-2016, FM 2012-2018"></div>
+    <div class="field"><label>Observação</label><textarea id="r_notes" rows="2" placeholder="Onde encontrou, cuidado ao identificar, variação entre versões...">${r.notes||''}</textarea></div>
+    <div class="field">
+      <label>Foto / desenho de aplicação</label>
+      <input type="file" accept="image/*" id="refPhotoInput" style="display:none" onchange="pickRefPhoto(this)">
+      <button type="button" class="btn btn-ghost" style="width:100%" onclick="document.getElementById('refPhotoInput').click()">📷 Adicionar foto</button>
+      <div id="refPhotoPreview" style="margin-top:8px"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveRefPart('${id||''}')">Salvar</button>
+    </div>`);
+  window._refPhoto = r.photo || '';
+  renderRefPhotoPreview();
+}
+function renderRefPhotoPreview() {
+  const el = document.getElementById('refPhotoPreview');
+  if (!el) return;
+  el.innerHTML = window._refPhoto ? `
+    <div style="position:relative;display:inline-block">
+      <img src="${window._refPhoto}" style="width:90px;height:90px;object-fit:cover;border-radius:8px;border:1px solid var(--steel-600)">
+      <button type="button" onclick="window._refPhoto='';renderRefPhotoPreview()" style="position:absolute;top:-6px;right:-6px;background:var(--stop);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:12px;cursor:pointer">✕</button>
+    </div>` : '';
+}
+async function pickRefPhoto(input) {
+  const file = input.files && input.files[0];
+  input.value = '';
+  if (!file) return;
+  window._refPhoto = await compressImageSource(file, 1000, 0.8);
+  renderRefPhotoPreview();
+}
+async function saveRefPart(id) {
+  const name = document.getElementById('r_name').value.trim();
+  const code = document.getElementById('r_code').value.trim();
+  if (!name && !code) { toast('Informe ao menos o nome ou o código', true); return; }
+  const data = {
+    name, code,
+    brands: document.getElementById('r_brands').value.trim(),
+    notes: document.getElementById('r_notes').value.trim(),
+    photo: window._refPhoto || '',
+  };
+  let saved;
+  if (id) { saved = refParts.find(r=>r.id===id); Object.assign(saved, data); }
+  else { saved = { id: uid(), ...data, createdAt: Date.now() }; refParts.push(saved); }
+  await syncSave('refParts', saved);
+  closeModal(); renderRefParts(); toast('Referência salva');
+}
+async function deleteRefPart(id) {
+  if (!confirm('Excluir esta referência?')) return;
+  refParts = refParts.filter(r=>r.id!==id);
+  await syncDelete('refParts', id);
+  renderRefParts(); toast('Referência excluída');
+}
+function viewRefPhoto(id) {
+  const r = refParts.find(x=>x.id===id);
+  if (!r || !r.photo) return;
+  openModal(`
+    <h3>${r.name || r.code}</h3>
+    <img src="${r.photo}" style="width:100%;border-radius:10px">
+    <div class="modal-actions" style="margin-top:16px"><button class="btn btn-ghost" onclick="closeModal()">Fechar</button></div>`);
+}
+function renderRefParts() {
+  const listEl = document.getElementById('refPartsList');
+  if (!listEl) return;
+  const q = (document.getElementById('refPartSearch')?.value||'').toLowerCase();
+  const list = refParts.filter(r =>
+    (r.name||'').toLowerCase().includes(q) || (r.code||'').toLowerCase().includes(q) || (r.brands||'').toLowerCase().includes(q)
+  ).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  const countEl = document.getElementById('refPartsCount');
+  if (countEl) countEl.textContent = refParts.length;
+  if (!list.length) {
+    listEl.innerHTML = refParts.length
+      ? `<div class="empty"><div class="icon">🔍</div><h3>Nada encontrado</h3></div>`
+      : `<div class="empty"><div class="icon">📖</div><h3>Banco vazio</h3><p>Cadastre a primeira peça de referência com o código original assim que confirmar no TecDoc ou catálogo oficial.</p><button class="btn btn-primary" onclick="openRefModal()">+ Nova referência</button></div>`;
+    return;
+  }
+  listEl.innerHTML = list.map(r => `<div class="card">
+    <div class="card-row">
+      ${r.photo?`<div class="part-photo" onclick="viewRefPhoto('${r.id}')" style="cursor:pointer"><img src="${r.photo}"></div>`:''}
+      <div style="flex:1;min-width:0">
+        <h3>${r.name || '(sem nome)'}</h3>
+        <div class="sub">${r.code?`🔖 <b>${r.code}</b>`:'Sem código informado'}</div>
+        ${r.brands?`<div class="meta"><span>🚛 <b>${r.brands}</b></span></div>`:''}
+        ${r.notes?`<div class="meta" style="margin-top:6px"><span style="color:var(--steel-300)">📝 ${r.notes}</span></div>`:''}
+      </div>
+    </div>
+    <div class="meta" style="margin-top:12px">
+      <button class="btn btn-ghost btn-sm" onclick="openRefModal('${r.id}')">Editar</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteRefPart('${r.id}')">Excluir</button>
+    </div>
+  </div>`).join('');
 }
 
 // ============ VENDAS ============
