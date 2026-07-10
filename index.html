@@ -1024,7 +1024,37 @@ function viewClientDoc(id) {
     <img src="${c.docPhoto}" style="width:100%;border-radius:10px">
     <div class="modal-actions" style="margin-top:16px">
       <button class="btn btn-ghost" onclick="closeModal()">Fechar</button>
+      <button class="btn btn-primary" onclick="shareClientDoc('${c.id}')">📤 Enviar documento</button>
     </div>`);
+}
+async function shareClientDoc(id) {
+  const c = clients.find(x => x.id === id);
+  if (!c || !c.docPhoto) { toast('Sem documento anexado', true); return; }
+  const fileName = 'documento-' + (c.name || 'cliente')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\w]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() + '.jpg';
+  try {
+    const res = await fetch(c.docPhoto);
+    const blob = await res.blob();
+    const file = new File([blob], fileName, { type: blob.type || 'image/jpeg' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: 'Documento de ' + c.name });
+      return;
+    }
+    // sem compartilhamento nativo (ex: computador): baixa a foto pra anexar manualmente
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(a.href);
+    toast('Documento baixado — anexe no WhatsApp');
+  } catch (e) {
+    if (e && e.name === 'AbortError') return; // usuário fechou o menu de compartilhar
+    console.warn('Falha ao compartilhar documento', e);
+    toast('Não foi possível enviar o documento', true);
+  }
 }
 // ============ ESCANEAR DOCUMENTO (OCR) ============
 let _ocrWorker = null;
