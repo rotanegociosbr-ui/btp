@@ -493,7 +493,14 @@
     <div class="stat-grid">
       <div class="stat"><div class="label">Total vendido</div><div class="num" id="statTotalSold">R$ 0</div></div>
       <div class="stat go"><div class="label">Comissão por vendedor (2%)</div><div class="num" id="statTotalComm" style="font-size:16px;line-height:1.6">R$ 0</div></div>
-      <div class="stat"><div class="label">A receber (pendente)</div><div class="num" id="statAReceber" style="color:var(--stop)">R$ 0</div></div>
+      <div class="stat" style="cursor:pointer" onclick="document.getElementById('salesFilter').value='pendente';renderSales()"><div class="label">A receber (pendente) 👆</div><div class="num" id="statAReceber" style="color:var(--stop)">R$ 0</div></div>
+    </div>
+    <div class="field"><label>Mostrar</label>
+      <select id="salesFilter" onchange="renderSales()">
+        <option value="">— Todas —</option>
+        <option value="pendente">⏳ Só pendentes (em aberto)</option>
+        <option value="pago">✅ Só pagas</option>
+      </select>
     </div>
     <div id="salesList"></div>
   </section>
@@ -2057,7 +2064,10 @@ function fmtDate(ts) {
   return new Date(ts).toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit',year:'2-digit'});
 }
 function renderSales() {
-  const list = [...sales].sort((a,b)=>b.date-a.date);
+  const filtro = document.getElementById('salesFilter')?.value || '';
+  const list = [...sales]
+    .filter(s => !filtro || (filtro === 'pendente' ? !s.paid : s.paid))
+    .sort((a,b)=>b.date-a.date);
   document.getElementById('salesCount').textContent = sales.length;
   const totalSold = sales.reduce((s,x)=>s+x.total,0);
   document.getElementById('statTotalSold').textContent = brlShort(totalSold);
@@ -2068,7 +2078,9 @@ function renderSales() {
   if (arEl) arEl.textContent = brlShort(aReceber);
   const el = document.getElementById('salesList');
   if (!list.length) {
-    el.innerHTML = `<div class="empty"><div class="icon">🧾</div><h3>Nenhuma venda ainda</h3><p>Registre sua primeira venda. A comissão de 2% é calculada automaticamente.</p><button class="btn btn-go" onclick="openSaleModal()">+ Nova venda</button></div>`;
+    el.innerHTML = sales.length
+      ? `<div class="empty"><div class="icon">${filtro==='pendente'?'🎉':'🔍'}</div><h3>${filtro==='pendente'?'Nada em aberto!':'Nada aqui'}</h3><p>${filtro==='pendente'?'Todas as vendas estão pagas.':'Nenhuma venda nesse filtro.'}</p></div>`
+      : `<div class="empty"><div class="icon">🧾</div><h3>Nenhuma venda ainda</h3><p>Registre sua primeira venda. A comissão de 2% é calculada automaticamente.</p><button class="btn btn-go" onclick="openSaleModal()">+ Nova venda</button></div>`;
     return;
   }
   el.innerHTML = list.map(s=>`<div class="card">
