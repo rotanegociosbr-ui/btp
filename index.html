@@ -1080,15 +1080,60 @@ async function ensureOcrWorker() {
 }
 function formatCpf(d) { return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4'); }
 function formatCnpj(d) { return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5'); }
+function validCpf(d) {
+  if (!/^\d{11}$/.test(d) || /^(\d)\1{10}$/.test(d)) return false;
+  let s = 0;
+  for (let i = 0; i < 9; i++) s += +d[i] * (10 - i);
+  if ((s * 10) % 11 % 10 !== +d[9]) return false;
+  s = 0;
+  for (let i = 0; i < 10; i++) s += +d[i] * (11 - i);
+  return (s * 10) % 11 % 10 === +d[10];
+}
+function validCnpj(d) {
+  if (!/^\d{14}$/.test(d) || /^(\d)\1{13}$/.test(d)) return false;
+  const dv = (len) => {
+    const w = len === 12 ? [5,4,3,2,9,8,7,6,5,4,3,2] : [6,5,4,3,2,9,8,7,6,5,4,3,2];
+    let s = 0;
+    for (let i = 0; i < len; i++) s += +d[i] * w[i];
+    const r = s % 11;
+    return r < 2 ? 0 : 11 - r;
+  };
+  return dv(12) === +d[12] && dv(13) === +d[13];
+}
+// Procura CNPJ/CPF válidos (pelos dígitos verificadores) linha a linha, ignorando
+// pontuação/espaços bagunçados que o OCR costuma produzir. CNPJ tem prioridade.
+function findDocNumber(text) {
+  let cpfFound = '';
+  for (const line of text.split('\n')) {
+    const digits = line.replace(/\D/g, '');
+    for (let i = 0; i + 14 <= digits.length; i++) {
+      const c = digits.slice(i, i + 14);
+      if (validCnpj(c)) return formatCnpj(c);
+    }
+    if (!cpfFound) {
+      for (let i = 0; i + 11 <= digits.length; i++) {
+        const c = digits.slice(i, i + 11);
+        if (validCpf(c)) { cpfFound = c; break; }
+      }
+    }
+  }
+  return cpfFound ? formatCpf(cpfFound) : '';
+}
 function parseDocumentText(text) {
   const result = {};
-  const cnpjMatch = text.match(/\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}/);
-  const cpfMatches = text.match(/\d{3}\.?\d{3}\.?\d{3}-?\d{2}/g) || [];
-  if (cnpjMatch && cnpjMatch[0].replace(/\D/g, '').length === 14) {
-    result.doc = formatCnpj(cnpjMatch[0].replace(/\D/g, ''));
+  const docValidado = findDocNumber(text);
+  if (docValidado) {
+    result.doc = docValidado;
   } else {
-    const cpf = cpfMatches.map(m => m.replace(/\D/g, '')).find(d => d.length === 11);
-    if (cpf) result.doc = formatCpf(cpf);
+    // fallback: número no formato certo mas com dígito ilegível — preenche pra revisão
+    const cnpjMatch = text.match(/\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}/);
+    const cpfMatches = text.match(/\d{3}\.?\d{3}\.?\d{3}-?\d{2}/g) || [];
+    if (cnpjMatch && cnpjMatch[0].replace(/\D/g, '').length === 14) {
+      result.doc = formatCnpj(cnpjMatch[0].replace(/\D/g, ''));
+    } else {
+      const cpf = cpfMatches.map(m => m.replace(/\D/g, '')).find(d => d.length === 11);
+      if (cpf) result.doc = formatCpf(cpf);
+    }
   }
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   const looksLikeName = l => /^[A-ZÀ-Ú][A-ZÀ-Ú\s]+$/.test(l) && l.split(/\s+/).length >= 2;
@@ -1114,6 +1159,57 @@ function scanDocument(input) {
   input.value = '';
   if (file) processDocumentFile(file);
 }
+// Melhora a imagem pro OCR: amplia, converte pra tons de cinza e estica o
+// contraste (cortando os 2% de pixels mais claros/escuros pra ignorar reflexos).
+async function preprocessForOcr(source) {
+  const dataUrl = await new Promise((resolve, reject) => {
+    if (source instanceof HTMLCanvasElement) { resolve(source.toDataURL('image/png')); return; }
+    const r = new FileReader();
+    r.onload = e => resolve(e.target.result);
+    r.onerror = reject;
+    r.readAsDataURL(source);
+  });
+  const img = await new Promise((resolve, reject) => {
+    const i = new Image();
+    i.onload = () => resolve(i); i.onerror = reject; i.src = dataUrl;
+  });
+  const scale = Math.min(2.5, Math.max(1, 1800 / Math.max(img.width, img.height)));
+  const width = Math.round(img.width * scale), height = Math.round(img.height * scale);
+  const canvas = document.createElement('canvas');
+  canvas.width = width; canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, 0, 0, width, height);
+  const im = ctx.getImageData(0, 0, width, height);
+  const px = im.data;
+  const grays = new Uint8ClampedArray(px.length / 4);
+  const hist = new Uint32Array(256);
+  for (let i = 0, j = 0; i < px.length; i += 4, j++) {
+    const g = (0.299 * px[i] + 0.587 * px[i+1] + 0.114 * px[i+2]) | 0;
+    grays[j] = g;
+    hist[g]++;
+  }
+  // corte de 0,2% em cada ponta: ignora pixels isolados (reflexo, sujeira) sem
+  // engolir o texto, que em documento ocupa pouco da área da foto
+  const totalPx = grays.length, clip = totalPx * 0.002;
+  let lo = 0, hi = 255, acc = 0;
+  for (let v = 0; v < 256; v++) { acc += hist[v]; if (acc > clip) { lo = v; break; } }
+  acc = 0;
+  for (let v = 255; v >= 0; v--) { acc += hist[v]; if (acc > clip) { hi = v; break; } }
+  if (hi - lo >= 10) { // imagem quase uniforme: não estica, só deixa em cinza
+    const range = hi - lo;
+    for (let i = 0, j = 0; i < px.length; i += 4, j++) {
+      const v = Math.max(0, Math.min(255, ((grays[j] - lo) / range) * 255));
+      px[i] = px[i+1] = px[i+2] = v;
+    }
+  } else {
+    for (let i = 0, j = 0; i < px.length; i += 4, j++) {
+      px[i] = px[i+1] = px[i+2] = grays[j];
+    }
+  }
+  ctx.putImageData(im, 0, 0);
+  return canvas;
+}
 async function processDocumentFile(file) {
   const btn1 = document.getElementById('scanDocBtn');
   const btn2 = document.getElementById('attachDocBtn');
@@ -1134,13 +1230,15 @@ async function processDocumentFile(file) {
     renderClientDocPreview();
     status.textContent = '🔍 Lendo documento...';
     const worker = await ensureOcrWorker();
-    const { data } = await worker.recognize(ocrSource);
+    let ocrInput = ocrSource;
+    try { ocrInput = await preprocessForOcr(ocrSource); } catch (e) { console.warn('Pré-processamento falhou, usando original', e); }
+    const { data } = await worker.recognize(ocrInput);
     const parsed = parseDocumentText(data.text || '');
     if (parsed.name) document.getElementById('c_name').value = parsed.name;
     if (parsed.doc) document.getElementById('c_doc').value = parsed.doc;
     status.textContent = (parsed.name || parsed.doc)
       ? '✅ Dados lidos e documento anexado — confira antes de salvar.'
-      : '📎 Documento anexado, mas não consegui ler os dados. Preencha manualmente.';
+      : '📎 Documento anexado, mas não consegui ler os dados. Dica: foto de frente, bem iluminada e sem reflexo.';
   } catch (e) {
     console.warn('Falha ao processar documento', e);
     status.textContent = window._clientDoc
