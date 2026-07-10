@@ -503,7 +503,10 @@
     <div class="view-head">
       <h2>Clientes</h2>
       <span class="count" id="clientsCount">0</span>
-      <button class="btn btn-primary push-right" onclick="openClientModal()">+ Novo cliente</button>
+      <div class="push-right" style="display:flex;gap:8px">
+        <button class="btn btn-ghost" onclick="exportarClientesWhatsApp()">📤 Exportar</button>
+        <button class="btn btn-primary" onclick="openClientModal()">+ Novo cliente</button>
+      </div>
     </div>
     <input class="search" id="clientSearch" placeholder="Buscar por nome, documento ou telefone..." oninput="renderClients()">
     <div id="clientsList"></div>
@@ -1144,11 +1147,14 @@ async function deleteClient(id) {
   renderClients(); refreshQuotePickers(); toast('Cliente excluído');
 }
 function clientSales(id) { return sales.filter(s => s.clientId === id); }
-function renderClients() {
-  const q = (document.getElementById('clientSearch').value||'').toLowerCase();
-  const list = clients.filter(c =>
+function filteredClients() {
+  const q = (document.getElementById('clientSearch')?.value||'').toLowerCase();
+  return clients.filter(c =>
     c.name.toLowerCase().includes(q) || (c.doc||'').toLowerCase().includes(q) || (c.phone||'').includes(q) || (c.email||'').toLowerCase().includes(q)
   ).sort((a,b)=>a.name.localeCompare(b.name));
+}
+function renderClients() {
+  const list = filteredClients();
   document.getElementById('clientsCount').textContent = clients.length;
   const el = document.getElementById('clientsList');
   if (!list.length) {
@@ -1191,6 +1197,23 @@ function waClient(id) {
   const phone = (c.phone||'').replace(/\D/g,'');
   if (!phone) { toast('Cliente sem telefone', true); return; }
   window.open(`https://wa.me/55${phone}`, '_blank');
+}
+function exportarClientesWhatsApp() {
+  const list = filteredClients();
+  if (!list.length) { toast('Nenhum cliente pra exportar', true); return; }
+  const filtrado = list.length < clients.length;
+  const header = `*Clientes BTP*${filtrado ? ' (filtrados pela busca)' : ''}\n\n`;
+  let body = '';
+  let shown = 0;
+  for (const c of list) {
+    const linha = `${shown+1}. ${c.name}${c.phone?' — '+c.phone:''}${c.type?' — '+c.type:''}\n`;
+    if (encodeURIComponent(header + body + linha).length > 1500) break;
+    body += linha;
+    shown++;
+  }
+  let footer = `\nTotal: ${shown} cliente(s)`;
+  if (shown < list.length) footer += `\n(+${list.length - shown} não exibidos aqui — use a busca pra filtrar e exportar em partes)`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(header + body + footer)}`, '_blank');
 }
 
 // ============ ATENDIMENTOS (FUNIL DE WHATSAPP) ============
