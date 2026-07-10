@@ -1920,13 +1920,19 @@ function openSaleModal() {
       <div class="total-line commission"><span>Sua comissão (2%)</span><span id="s_comm">R$ 0,00</span></div>
     </div>
     <div class="field" style="margin-top:14px"><label>Forma de pagamento</label>
-      <select id="s_paymethod" onchange="toggleEntradaField()">
+      <select id="s_paymethod" onchange="onPayMethodChange()">
         ${PAY_METHODS.map(m=>`<option>${m}</option>`).join('')}
       </select>
     </div>
-    <div class="field" id="s_entrada_field" style="display:none"><label>Valor da entrada (R$)</label>
-      <input id="s_entrada" type="number" step="0.01" placeholder="0,00">
+    <div class="field-row">
+      <div class="field"><label>Entrada (R$) — opcional</label><input id="s_entrada" type="number" step="0.01" placeholder="0,00" oninput="onPayMethodChange()"></div>
+      <div class="field" id="s_parcelas_field" style="display:none"><label>Parcelas</label>
+        <select id="s_parcelas" onchange="onPayMethodChange()">
+          ${Array.from({length:12},(_,i)=>`<option value="${i+1}">${i+1}x</option>`).join('')}
+        </select>
+      </div>
     </div>
+    <div id="s_parcela_preview" style="font-size:12.5px;color:var(--steel-300);margin:-8px 0 12px"></div>
     <div class="field"><label>Pagamento</label>
       <select id="s_paid">
         <option value="pago">✅ Pago</option>
@@ -1938,14 +1944,31 @@ function openSaleModal() {
       <button class="btn btn-go" onclick="saveSale()">Registrar venda</button>
     </div>`);
   renderSaleItems();
+  onPayMethodChange();
 }
-const PAY_METHODS = ['PIX','Dinheiro','Cartão','Boleto','Cheque','Entrada + Boleto','Entrada + Cartão','Entrada + Cheque'];
-function toggleEntradaField() {
-  const method = document.getElementById('s_paymethod').value;
-  const isEntrada = method.startsWith('Entrada');
-  document.getElementById('s_entrada_field').style.display = isEntrada ? '' : 'none';
-  // venda com entrada normalmente ainda tem saldo a receber
-  if (isEntrada) document.getElementById('s_paid').value = 'pendente';
+const PAY_METHODS = ['PIX','Dinheiro','Cartão de Crédito','Cartão de Débito','Boleto','Cheque','Transferência (TED)','Permuta / troca de peças','Fiado (a combinar)'];
+const PAY_PARCELAVEL = ['Cartão de Crédito','Boleto','Cheque','Fiado (a combinar)'];
+const PAY_AUTO_PENDENTE = ['Boleto','Cheque','Fiado (a combinar)'];
+function onPayMethodChange() {
+  const method = document.getElementById('s_paymethod')?.value;
+  if (!method) return;
+  const parcelavel = PAY_PARCELAVEL.includes(method);
+  document.getElementById('s_parcelas_field').style.display = parcelavel ? '' : 'none';
+  const entrada = parseFloat(document.getElementById('s_entrada').value) || 0;
+  const parcelas = parcelavel ? (parseInt(document.getElementById('s_parcelas').value) || 1) : 1;
+  // sugere o status conforme a forma escolhida (usuário pode mudar depois)
+  document.getElementById('s_paid').value = (PAY_AUTO_PENDENTE.includes(method) || entrada > 0) ? 'pendente' : 'pago';
+  // preview do parcelamento
+  const total = saleItems.reduce((s,i)=>s+i.price,0);
+  const saldo = Math.max(0, total - entrada);
+  const preview = document.getElementById('s_parcela_preview');
+  if (total && parcelas > 1) {
+    preview.textContent = `${entrada?`Entrada de ${brl(entrada)} + `:''}${parcelas}x de ${brl(saldo/parcelas)}`;
+  } else if (total && entrada) {
+    preview.textContent = `Entrada de ${brl(entrada)} + saldo de ${brl(saldo)}`;
+  } else {
+    preview.textContent = '';
+  }
 }
 function addSaleItem(pid) {
   if (!pid) return;
@@ -1966,6 +1989,7 @@ function renderSaleItems() {
   const total = saleItems.reduce((s,i)=>s+i.price,0);
   document.getElementById('s_total').textContent = brl(total);
   document.getElementById('s_comm').textContent = brl(total*COMMISSION_RATE);
+  onPayMethodChange();
 }
 async function saveSale() {
   if (!saleItems.length) { toast('Adicione ao menos uma peça', true); return; }
@@ -1973,10 +1997,9 @@ async function saveSale() {
   const client = clientId ? clients.find(c=>c.id===clientId) : null;
   const total = saleItems.reduce((s,i)=>s+i.price,0);
   const payMethod = document.getElementById('s_paymethod').value;
-  const isEntrada = payMethod.startsWith('Entrada');
-  const downPayment = isEntrada ? (parseFloat(document.getElementById('s_entrada').value) || 0) : 0;
-  if (isEntrada && !downPayment) { toast('Informe o valor da entrada', true); return; }
+  const downPayment = parseFloat(document.getElementById('s_entrada').value) || 0;
   if (downPayment > total) { toast('Entrada não pode ser maior que o total', true); return; }
+  const installments = PAY_PARCELAVEL.includes(payMethod) ? (parseInt(document.getElementById('s_parcelas').value) || 1) : 1;
   const sale = {
     id: uid(),
     clientId,
@@ -1988,6 +2011,7 @@ async function saveSale() {
     paid: document.getElementById('s_paid').value === 'pago',
     payMethod,
     downPayment,
+    installments,
     date: Date.now()
   };
   sales.push(sale);
@@ -2053,12 +2077,16 @@ function renderSales() {
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <h3>${s.clientName}</h3>
           ${s.paid ? '<span class="tag tag-go">Pago</span>' : '<span class="tag tag-hold">Pendente</span>'}
-          ${s.payMethod?`<span class="tag">💳 ${s.payMethod}</span>`:''}
+          ${s.payMethod?`<span class="tag">💳 ${s.payMethod}${(s.installments||1)>1?` ${s.installments}x`:''}</span>`:''}
           ${s.vendedor?`<span class="tag">👤 ${s.vendedor}</span>`:''}
         </div>
         <div class="sub">${fmtDate(s.date)} · ${s.items.length} peça(s)</div>
         <div class="meta">${s.items.map(i=>`<span>${i.name}</span>`).join('')}</div>
-        ${(!s.paid && s.downPayment)?`<div class="meta" style="margin-top:6px"><span>💵 Entrada: <b>${brl(s.downPayment)}</b></span><span style="color:var(--stop)">Falta: <b>${brl(s.total - s.downPayment)}</b></span></div>`:''}
+        ${(!s.paid && (s.downPayment || (s.installments||1)>1))?`<div class="meta" style="margin-top:6px">
+          ${s.downPayment?`<span>💵 Entrada: <b>${brl(s.downPayment)}</b></span>`:''}
+          ${(s.installments||1)>1?`<span>📆 <b>${s.installments}x de ${brl(saldoDevido(s)/s.installments)}</b></span>`:''}
+          <span style="color:var(--stop)">Falta: <b>${brl(saldoDevido(s))}</b></span>
+        </div>`:''}
       </div>
       <div style="text-align:right">
         <div style="font-family:var(--font-display);font-size:20px;font-weight:700">${brl(s.total)}</div>
